@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Env files (keep .env.example)
+.env
+.env.local
+.env.*.local
+.env.test
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Coverage / test artifacts
+coverage/
+.nyc_output/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Uploads (keep folder via .gitkeep)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Prisma generated client
+backend/node_modules/.prisma/
+
+# Claude Code team data (local only)
+.claude/teams/
+.claude/tasks/

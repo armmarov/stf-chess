@@ -1,0 +1,1840 @@
+openapi: 3.1.0
+
+info:
+  title: STF Supreme Chess API
+  version: 0.1.0
+  description: |
+    REST API for the STF Supreme Chess attendance and payment management system.
+    All protected endpoints require a valid JWT delivered via httpOnly cookie.
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development
+
+security:
+  - cookieAuth: []
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: stf_token
+
+  schemas:
+    Role:
+      type: string
+      enum: [admin, teacher, coach, student]
+      description: User role in the system
+
+    PaymentStatus:
+      type: string
+      enum: [pending, approved, rejected]
+      description: Lifecycle status of a payment receipt
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          description: Login username (not email)
+        password:
+          type: string
+          format: password
+
+    AuthResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      required: [id, name, username, role]
+      description: Public user object returned by auth endpoints — never includes password_hash or email.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        username:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+
+    UserDetail:
+      type: object
+      required: [id, name, username, role, isActive, createdAt]
+      description: Full user object returned by user-management endpoints. Never includes passwordHash.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        username:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        phone:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    UserListResponse:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserDetail'
+
+    UserResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: '#/components/schemas/UserDetail'
+
+    CreateUserRequest:
+      type: object
+      required: [name, username, password, role]
+      properties:
+        name:
+          type: string
+        username:
+          type: string
+          description: "3–32 chars; lowercase letters, digits, underscores only."
+          example: john_doe
+        password:
+          type: string
+          format: password
+          description: Minimum 8 characters.
+        role:
+          $ref: '#/components/schemas/Role'
+        phone:
+          type: string
+          description: "Optional. 7–20 chars; digits, spaces, +, -, (, ) allowed."
+
+    UpdateUserRequest:
+      type: object
+      description: |
+        Updatable fields depend on caller role:
+        - **Admin**: `name`, `phone`, `isActive`, `role`
+        - **Teacher**: only `isActive: false` on a student target
+        - **Self** (any role): `name`, `phone` only (not `isActive`, not `role`)
+        `username` is never updatable — including it returns 400 `"Username cannot be changed"`.
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        role:
+          $ref: '#/components/schemas/Role'
+          description: Admin only. Changing role of other callers returns 403.
+
+    SetPasswordRequest:
+      type: object
+      required: [newPassword]
+      properties:
+        newPassword:
+          type: string
+          format: password
+          description: Minimum 8 characters.
+
+    UserSummary:
+      type: object
+      required: [id, name]
+      description: Minimal user projection embedded in session detail responses.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    SessionCount:
+      type: object
+      required: [preAttendances]
+      description: Prisma _count projection returned on list items.
+      properties:
+        preAttendances:
+          type: integer
+          description: Number of confirmed pre-attendance records for the session.
+
+    SessionListItem:
+      type: object
+      required: [id, date, startTime, endTime, place, isCancelled, createdAt, createdById, _count]
+      description: Session shape returned in the list response — flat IDs, no embedded relations.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date-time
+          description: "ISO 8601 timestamp (Prisma @db.Date serialized as UTC midnight, e.g. 2026-04-20T00:00:00.000Z)"
+        startTime:
+          type: string
+          format: date-time
+          description: "ISO 8601 timestamp encoding the session start (date + time combined by server)"
+        endTime:
+          type: string
+          format: date-time
+          description: "ISO 8601 timestamp encoding the session end (date + time combined by server)"
+        place:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        isCancelled:
+          type: boolean
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        createdById:
+          type: string
+          format: uuid
+        cancelledById:
+          type: string
+          format: uuid
+          nullable: true
+        _count:
+          $ref: '#/components/schemas/SessionCount'
+        myPreAttended:
+          type: boolean
+          description: "Present only for student role. True if the requesting student has confirmed pre-attendance for this session."
+
+    Session:
+      type: object
+      required: [id, date, startTime, endTime, place, isCancelled, createdAt, createdById, createdBy]
+      description: |
+        Full session object returned by GET /sessions/{id}, POST, and PATCH.
+        Includes embedded createdBy / cancelledBy relations. Row is never deleted — cancellation is soft.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date-time
+          description: "ISO 8601 timestamp (Prisma @db.Date serialized as UTC midnight, e.g. 2026-04-20T00:00:00.000Z)"
+        startTime:
+          type: string
+          format: date-time
+          description: "ISO 8601 timestamp encoding the session start (date + time combined by server)"
+        endTime:
+          type: string
+          format: date-time
+          description: "ISO 8601 timestamp encoding the session end (date + time combined by server)"
+        place:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        isCancelled:
+          type: boolean
+          description: Soft-cancel flag. Set via PATCH /sessions/{id}. Row is never deleted.
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        createdById:
+          type: string
+          format: uuid
+        cancelledById:
+          type: string
+          format: uuid
+          nullable: true
+        createdBy:
+          $ref: '#/components/schemas/UserSummary'
+        cancelledBy:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/UserSummary'
+        myPreAttended:
+          type: boolean
+          description: "Present only for student role. True if the requesting student has confirmed pre-attendance for this session."
+
+    SessionResponse:
+      type: object
+      required: [session]
+      description: Wrapper for single-session responses.
+      properties:
+        session:
+          $ref: '#/components/schemas/Session'
+
+    SessionListResponse:
+      type: object
+      required: [sessions]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionListItem'
+
+    CreateSessionRequest:
+      type: object
+      required: [date, startTime, endTime, place]
+      properties:
+        date:
+          type: string
+          format: date
+          description: Must be today or in the future (UTC).
+        startTime:
+          type: string
+          description: "HH:MM or HH:MM:SS (24-hour). Must be before endTime."
+          example: "09:00"
+        endTime:
+          type: string
+          description: "HH:MM or HH:MM:SS (24-hour). Must be after startTime."
+          example: "11:00"
+        place:
+          type: string
+        notes:
+          type: string
+
+    UpdateSessionRequest:
+      type: object
+      description: |
+        All fields are optional. `cancelledAt` and `cancelledById` are server-managed — client may not set them directly.
+        Once cancelled, only an admin may un-cancel (`isCancelled: false`); all other edits on a cancelled session return 409.
+      properties:
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+          description: "HH:MM or HH:MM:SS"
+        endTime:
+          type: string
+          description: "HH:MM or HH:MM:SS"
+        place:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        isCancelled:
+          type: boolean
+          description: Set true to cancel; set false (admin only) to un-cancel.
+
+    StudentSummary:
+      type: object
+      required: [id, name, username]
+      description: Student projection embedded in attendance roster entries.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        username:
+          type: string
+
+    SessionSummary:
+      type: object
+      required: [id, date, startTime, endTime, place, isCancelled]
+      description: Minimal session projection embedded in the attendance roster response.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date-time
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        place:
+          type: string
+        isCancelled:
+          type: boolean
+
+    PreAttendance:
+      type: object
+      required: [sessionId, studentId, confirmedAt]
+      description: Records a student's intent to attend a session.
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        confirmedAt:
+          type: string
+          format: date-time
+
+    PreAttendanceRequest:
+      type: object
+      required: [confirmed]
+      properties:
+        confirmed:
+          type: boolean
+          description: true to set pre-attendance; false to remove it.
+
+    PreAttendanceResponse:
+      type: object
+      required: [preAttendance]
+      properties:
+        preAttendance:
+          nullable: true
+          description: The resulting PreAttendance record, or null if removed (confirmed=false).
+          allOf:
+            - $ref: '#/components/schemas/PreAttendance'
+
+    AttendanceRosterEntry:
+      type: object
+      required: [student, preAttended, present, paidCash]
+      properties:
+        student:
+          $ref: '#/components/schemas/StudentSummary'
+        preAttended:
+          type: boolean
+          description: Whether the student confirmed pre-attendance.
+        present:
+          type: boolean
+          description: Whether the student was marked present by a teacher.
+        paidCash:
+          type: boolean
+          description: Whether the student paid cash at the session.
+
+    AttendanceRoster:
+      type: object
+      required: [session, roster]
+      properties:
+        session:
+          $ref: '#/components/schemas/SessionSummary'
+        roster:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceRosterEntry'
+
+    MarkAttendanceEntry:
+      type: object
+      required: [studentId, present, paidCash]
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        present:
+          type: boolean
+        paidCash:
+          type: boolean
+
+    MarkAttendanceRequest:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarkAttendanceEntry'
+
+    Attendance:
+      type: object
+      required: [sessionId, studentId, present, paidCash]
+      description: Actual attendance record set by a teacher.
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        present:
+          type: boolean
+        paidCash:
+          type: boolean
+        markedById:
+          type: string
+          format: uuid
+          nullable: true
+        markedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PaymentSessionSummary:
+      type: object
+      required: [id, date, startTime, place, isCancelled]
+      description: Minimal session projection embedded in Payment responses. Omits endTime.
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date-time
+          description: "ISO 8601 timestamp (Prisma @db.Date serialized as UTC midnight)"
+        startTime:
+          type: string
+          format: date-time
+        place:
+          type: string
+        isCancelled:
+          type: boolean
+
+    Payment:
+      type: object
+      required: [id, studentId, sessionId, amount, receiptUrl, status, uploadedAt, student, session]
+      description: |
+        Payment receipt record. The raw file path is never exposed — use `receiptUrl` to download the file via the guarded receipt endpoint.
+        `amount` is a snapshot of the session fee at upload time and is never recalculated (FR-28).
+        Embedded relations (`student`, `session`, `reviewedBy`) are present on all roles consistently.
+      properties:
+        id:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+          nullable: true
+        amount:
+          type: string
+          description: "Session fee snapshotted at upload time (Prisma Decimal serialized as string, e.g. \"50.00\"). Not recalculated if admin changes the fee later (FR-28)."
+          example: "50.00"
+        receiptUrl:
+          type: string
+          description: "Authenticated download URL, e.g. /api/payments/{id}/receipt"
+          example: /api/payments/abc-123/receipt
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        uploadedAt:
+          type: string
+          format: date-time
+        reviewedById:
+          type: string
+          format: uuid
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        student:
+          $ref: '#/components/schemas/StudentSummary'
+        session:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PaymentSessionSummary'
+        reviewedBy:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/UserSummary'
+
+    PaymentResponse:
+      type: object
+      required: [payment]
+      properties:
+        payment:
+          $ref: '#/components/schemas/Payment'
+
+    PaymentListResponse:
+      type: object
+      required: [payments]
+      properties:
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payment'
+
+    FeeResponse:
+      type: object
+      required: [fee]
+      properties:
+        fee:
+          type: number
+          format: double
+          description: Current session fee.
+          example: 50.00
+
+    SetFeeRequest:
+      type: object
+      required: [fee]
+      properties:
+        fee:
+          type: number
+          format: double
+          description: "Positive number, max 2 decimal places, max 10000."
+          example: 60.00
+
+    ReviewPaymentRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approve, reject]
+        note:
+          type: string
+          description: "Optional review note. Phase 1: stored only if the reviewNote column exists in the DB; otherwise logged and ignored."
+          nullable: true
+
+    AppConfig:
+      type: object
+      required: [id, key, value, updatedAt]
+      description: Global configuration entry. Fee is stored as string value under key 'session_fee'.
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          example: session_fee
+        value:
+          type: string
+          example: "50.00"
+        updatedById:
+          type: string
+          format: uuid
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        details:
+          description: Optional validation details
+          nullable: true
+
+paths:
+  /users:
+    get:
+      summary: List users
+      operationId: listUsers
+      tags: [Users]
+      description: |
+        Returns users ordered by `name asc`.
+
+        **Role access:**
+        - Admin: may filter by any role.
+        - Teacher: may only list students. If `role` is omitted, defaults to `student`. Any other `role` value returns 403.
+        - Coach/Student: 403.
+      parameters:
+        - name: role
+          in: query
+          schema:
+            $ref: '#/components/schemas/Role'
+          description: Filter by role. Teachers may only pass `student` (or omit).
+        - name: active
+          in: query
+          schema:
+            type: boolean
+          description: Filter by active status. Omit to return all.
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient role, or teacher filtering by non-student role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                forbidden:
+                  value:
+                    error: Forbidden
+                teacher_role_filter:
+                  value:
+                    error: Teachers can only list students
+
+    post:
+      summary: Create a user
+      operationId: createUser
+      tags: [Users]
+      description: |
+        Creates a new user. Password is bcrypt-hashed (cost 10) before storage.
+
+        **Role access:**
+        - Admin: any role.
+        - Teacher: only `role=student`; returns 403 for any other role.
+        - Others: 403.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Validation error (username format, password length, invalid role, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient role, or teacher creating non-student
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                forbidden:
+                  value:
+                    error: Forbidden
+                teacher_non_student:
+                  value:
+                    error: Teachers can only create student accounts
+        '409':
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Username already taken
+
+  /users/{id}:
+    get:
+      summary: Get a single user
+      operationId: getUser
+      tags: [Users]
+      description: |
+        **Role access:**
+        - Admin: any user.
+        - Teacher: students only.
+        - Any role (self): own record.
+        - Others accessing non-self: 403.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Teacher accessing non-student, or non-admin/non-self accessing another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update a user
+      operationId: updateUser
+      tags: [Users]
+      description: |
+        Partially updates a user. Allowed fields depend on caller role:
+        - **Admin**: `name`, `phone`, `isActive`.
+        - **Teacher**: only `isActive: false` on a student target.
+        - **Self** (any role): `name`, `phone` only.
+        `username` is never updatable — including it returns 400.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Validation error, or `username` present in body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Username cannot be changed
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: |
+            Multiple cases depending on caller and target:
+            - Coach/student accessing non-self → `"Forbidden"`
+            - Teacher accessing non-student → `"Forbidden"`
+            - Teacher setting fields other than `isActive: false` on a student → `"Teachers can only deactivate students"`
+            - Self or teacher-self setting `isActive` or `role` → `"You can only update your own name and phone"`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                forbidden:
+                  value:
+                    error: Forbidden
+                teacher_deactivate_only:
+                  value:
+                    error: Teachers can only deactivate students
+                self_name_phone_only:
+                  value:
+                    error: You can only update your own name and phone
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/{id}/password:
+    post:
+      summary: Set a user's password (admin only)
+      operationId: setUserPassword
+      tags: [Users]
+      description: |
+        Admin-only endpoint. Sets a new bcrypt-hashed password for any user.
+        There is no self-service password change in Phase 1 (see REQUIREMENTS §11 decision #1).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPasswordRequest'
+      responses:
+        '204':
+          description: Password updated. No response body.
+        '400':
+          description: Validation error (password too short)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /sessions:
+    get:
+      summary: List coaching sessions
+      operationId: listSessions
+      tags: [Sessions]
+      description: |
+        Returns all sessions ordered by `date` asc, then `startTime` asc.
+        Cancelled sessions are included by default; use `includeCancelled=false` to exclude them.
+        Requires authentication (any role).
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter sessions on or after this date (YYYY-MM-DD).
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter sessions on or before this date (YYYY-MM-DD).
+        - name: includeCancelled
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Set false to exclude cancelled sessions from results.
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionListResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create a new coaching session
+      operationId: createSession
+      tags: [Sessions]
+      description: |
+        Creates a new session. Allowed roles: admin, teacher.
+        `date` must be today or in the future (UTC). `startTime` must be before `endTime`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: Validation error (invalid date, startTime ≥ endTime, missing required fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Role not permitted (coach or student)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+
+  /sessions/{id}:
+    get:
+      summary: Get a single session
+      operationId: getSession
+      tags: [Sessions]
+      description: Returns full session detail including embedded `createdBy` and `cancelledBy` (if cancelled). Any authenticated role.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Session detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update or cancel a session
+      operationId: updateSession
+      tags: [Sessions]
+      description: |
+        Partially updates a session. Allowed roles: admin, teacher.
+
+        **Cancellation rules:**
+        - Set `isCancelled: true` to soft-cancel. Server sets `cancelledAt` and `cancelledById` automatically — client must not send these fields.
+        - Once cancelled, only an admin may un-cancel (`isCancelled: false`), which resets `cancelledAt` / `cancelledById` to null.
+        - Any other edit on a cancelled session returns 409.
+
+        **Validation:**
+        - Same date / time rules as POST apply to any updated fields.
+        - `startTime` and `endTime` are validated together if either is provided.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionRequest'
+      responses:
+        '200':
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: |
+            Two distinct cases:
+            - Role not permitted (coach/student) → `{"error": "Forbidden"}`
+            - Teacher attempting un-cancel (`isCancelled: false`) → `{"error": "Only admin can un-cancel a session"}`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                role_not_permitted:
+                  value:
+                    error: Forbidden
+                non_admin_uncancel:
+                  value:
+                    error: Only admin can un-cancel a session
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Session is cancelled and the request is not an un-cancel (`isCancelled: false`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Cannot edit a cancelled session; un-cancel it first"
+
+  /sessions/{id}/pre-attendance:
+    post:
+      summary: Toggle pre-attendance for a session
+      operationId: togglePreAttendance
+      tags: [Attendance]
+      description: |
+        Student sets or removes their pre-attendance for a session.
+        - `confirmed: true` — upsert a PreAttendance record.
+        - `confirmed: false` — delete the PreAttendance record if it exists.
+
+        **Rules:**
+        - Session must exist (404 if not).
+        - Session must not be cancelled (409).
+        - Current time must be at least 10 minutes before `session.startTime` (409 if cutoff passed).
+        - Only students may call this endpoint (403 for other roles).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Session ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreAttendanceRequest'
+      responses:
+        '200':
+          description: Pre-attendance updated. `preAttendance` is null when confirmed=false.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreAttendanceResponse'
+        '400':
+          description: Request body failed Zod validation (missing or wrong-type `confirmed` field)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Role is not student
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Session not found
+        '409':
+          description: |
+            Two distinct cases:
+            - Session is cancelled → `{"error": "Cannot pre-attend a cancelled session"}`
+            - 10-minute cutoff has passed → `{"error": "Pre-attendance cutoff has passed"}`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                cancelled:
+                  value:
+                    error: Cannot pre-attend a cancelled session
+                cutoff:
+                  value:
+                    error: Pre-attendance cutoff has passed
+
+  /sessions/{id}/attendance:
+    get:
+      summary: Get attendance roster for a session
+      operationId: getAttendanceRoster
+      tags: [Attendance]
+      description: |
+        Returns all active students with their pre-attendance, present, and paidCash status for the session.
+        Allowed roles: admin, teacher.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Session ID
+      responses:
+        '200':
+          description: Attendance roster
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceRoster'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Role is not admin or teacher
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Session not found
+
+    put:
+      summary: Bulk mark attendance for a session
+      operationId: markAttendance
+      tags: [Attendance]
+      description: |
+        Upserts attendance records for a batch of students. Idempotent — can be called multiple times to correct mistakes.
+
+        **Rules:**
+        - Session must exist (404).
+        - Session must not be cancelled (409).
+        - Every `studentId` in `entries` must be an active student — the entire batch is rejected (400) if any ID is invalid.
+        - On conflict `(sessionId, studentId)`, updates `present`, `paidCash`, `markedById`, `markedAt`.
+        - Allowed roles: admin, teacher.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Session ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkAttendanceRequest'
+      responses:
+        '200':
+          description: Number of records upserted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated]
+                properties:
+                  updated:
+                    type: integer
+                    description: Count of attendance records created or updated.
+        '400':
+          description: |
+            Zod validation error (e.g. missing fields, wrong types, empty `entries` array),
+            or one or more `studentId` values are not valid active students.
+            Invalid student IDs are listed in the error message.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Invalid or inactive student IDs: <uuid1>, <uuid2>"
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Role is not admin or teacher
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Session not found
+        '409':
+          description: Session is cancelled — attendance cannot be marked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Cannot mark attendance for a cancelled session
+
+  /auth/login:
+    post:
+      summary: Log in and receive JWT cookie
+      operationId: authLogin
+      security: []
+      tags: [Auth]
+      description: |
+        Authenticates a user with username + password.
+        On success, sets an httpOnly cookie named `stf_token` containing the JWT.
+        Rate-limited to 20 requests per 15 minutes per IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful; JWT set in httpOnly cookie
+          headers:
+            Set-Cookie:
+              description: "stf_token=<jwt>; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800 (Secure added when NODE_ENV=production)"
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Request body failed validation (missing or invalid fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Validation error
+                details:
+                  username: [Required]
+        '401':
+          description: Invalid username or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Invalid credentials
+        '403':
+          description: Account is deactivated (`is_active = false`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Account is deactivated
+        '429':
+          description: Rate limit exceeded (20 req / 15 min per IP)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Too many requests, please try again later.
+
+  /auth/logout:
+    post:
+      summary: End session and clear JWT cookie
+      operationId: authLogout
+      tags: [Auth]
+      description: Clears the `stf_token` httpOnly cookie. No request body required.
+      responses:
+        '204':
+          description: Logged out; `stf_token` cookie cleared. No response body.
+
+  /auth/me:
+    get:
+      summary: Get current authenticated user
+      operationId: authMe
+      security:
+        - cookieAuth: []
+      tags: [Auth]
+      description: Returns the user object for the authenticated session. Requires a valid `stf_token` cookie.
+      responses:
+        '200':
+          description: Current authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: |
+            Authentication failed. Three distinct cases:
+            - Missing cookie → `{"error": "Authentication required"}`
+            - Bad/expired JWT → `{"error": "Invalid or expired token"}`
+            - User deactivated after login → `{"error": "User not found or inactive"}`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_cookie:
+                  value:
+                    error: Authentication required
+                invalid_token:
+                  value:
+                    error: Invalid or expired token
+                user_inactive:
+                  value:
+                    error: User not found or inactive
+
+  /config/fee:
+    get:
+      summary: Get current session fee
+      operationId: getFee
+      tags: [Config]
+      description: Returns the current session fee. Any authenticated role.
+      responses:
+        '200':
+          description: Current fee
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeResponse'
+              example:
+                fee: 50
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session fee not yet configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Session fee not configured
+
+    put:
+      summary: Update session fee (admin only)
+      operationId: setFee
+      tags: [Config]
+      description: |
+        Sets the global session fee. Admin only.
+        The new fee applies to future payment uploads; existing `Payment.amount` values are not recalculated (FR-28).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetFeeRequest'
+      responses:
+        '200':
+          description: Updated fee
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeResponse'
+              example:
+                fee: 60
+        '400':
+          description: Validation error (not positive, >10000, or more than 2 decimal places)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+
+  /payments:
+    post:
+      summary: Upload a payment receipt
+      operationId: uploadPayment
+      tags: [Payments]
+      description: |
+        Student uploads a receipt image or PDF for a session. The current session fee is snapshotted into `Payment.amount` at upload time (FR-28).
+
+        **File constraints:**
+        - Allowed MIME types: `image/jpeg`, `image/png`, `application/pdf`
+        - Maximum file size: 5 MB
+        - Files are stored on disk with UUID filenames under the server's `/uploads/` directory and are never web-exposed directly. Use `GET /payments/{id}/receipt` to download.
+
+        **Rules:**
+        - Only students may call this endpoint.
+        - The target session must exist and must not be cancelled.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [sessionId, receipt]
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+                  description: The session this payment is for.
+                receipt:
+                  type: string
+                  format: binary
+                  description: "Receipt file. Allowed: JPEG, PNG, PDF. Max 5 MB."
+      responses:
+        '201':
+          description: Payment record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: |
+            Validation or file error. Possible messages:
+            - `"Invalid file type. Allowed: JPEG, PNG, PDF"` — unsupported MIME type
+            - `"File exceeds 5 MB limit"` — file too large
+            - `"Receipt file is required"` — no file part in the request
+            - Zod validation error — missing or invalid `sessionId`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_mime:
+                  value:
+                    error: "Invalid file type. Allowed: JPEG, PNG, PDF"
+                too_large:
+                  value:
+                    error: File exceeds 5 MB limit
+                no_file:
+                  value:
+                    error: Receipt file is required
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not a student
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Session not found
+        '409':
+          description: Session is cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Cannot submit payment for a cancelled session
+
+    get:
+      summary: List payments
+      operationId: listPayments
+      tags: [Payments]
+      description: |
+        Returns payments ordered by `uploadedAt desc`.
+
+        **Role access:**
+        - **Student**: always receives own payments only; query filters are ignored.
+        - **Admin / Teacher**: may filter by `status`, `studentId`, and `sessionId`.
+        - **Coach**: 403.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PaymentStatus'
+          description: Filter by status. Admin/teacher only — ignored for students.
+        - name: studentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by student. Admin/teacher only — ignored for students.
+        - name: sessionId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by session. Admin/teacher only — ignored for students.
+      responses:
+        '200':
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentListResponse'
+        '400':
+          description: Validation error (invalid UUID or status value in query)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is coach
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+
+  /payments/{id}:
+    get:
+      summary: Get a single payment
+      operationId: getPayment
+      tags: [Payments]
+      description: |
+        Returns a single payment record.
+
+        **Role access:**
+        - **Student**: own payments only. Returns 403 for other students' payments.
+        - **Admin / Teacher**: any payment.
+        - **Coach**: 403.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Payment ID
+      responses:
+        '200':
+          description: Payment detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Coach role, or student accessing another student's payment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Payment not found
+
+  /payments/{id}/receipt:
+    get:
+      summary: Download a payment receipt file
+      operationId: downloadReceipt
+      tags: [Payments]
+      description: |
+        Streams the receipt file stored on disk. The file is never web-accessible directly — this guarded endpoint enforces the same role rules as `GET /payments/{id}`.
+
+        Response `Content-Type` is derived from the file extension:
+        - `.jpg` → `image/jpeg`
+        - `.png` → `image/png`
+        - `.pdf` → `application/pdf`
+
+        `Content-Disposition` is `inline; filename="<uuid>.<ext>"`.
+
+        **Role access:**
+        - **Student**: own receipts only.
+        - **Admin / Teacher**: any receipt.
+        - **Coach**: 403.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Payment ID
+      responses:
+        '200':
+          description: Receipt file binary
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Coach role, or student accessing another student's receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: |
+            Payment record not found, or file missing on disk. Possible messages:
+            - `"Payment not found"`
+            - `"Receipt file not available"`
+            - `"Receipt file not found on disk"`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                payment_not_found:
+                  value:
+                    error: Payment not found
+                file_unavailable:
+                  value:
+                    error: Receipt file not available
+                file_missing:
+                  value:
+                    error: Receipt file not found on disk
+
+  /payments/{id}/review:
+    patch:
+      summary: Approve or reject a payment
+      operationId: reviewPayment
+      tags: [Payments]
+      description: |
+        Sets a payment's status to `approved` or `rejected`. Only `pending` payments may be reviewed — any other status returns 409.
+
+        **Note on `note` field:** The optional review note is logged server-side but is **not persisted** to the database in Phase 1 (no `reviewNote` column in schema).
+
+        Allowed roles: admin, teacher.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Payment ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewPaymentRequest'
+      responses:
+        '200':
+          description: Updated payment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: Validation error (missing or invalid `decision`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not admin or teacher
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Payment not found
+        '409':
+          description: "Payment is not pending. Message: `\"Payment has already been approved\"` or `\"Payment has already been rejected\"`"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                already_approved:
+                  value:
+                    error: Payment has already been approved
+                already_rejected:
+                  value:
+                    error: Payment has already been rejected

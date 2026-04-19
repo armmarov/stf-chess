@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  teacher
+  coach
+  student
+}
+
+enum PaymentStatus {
+  pending
+  approved
+  rejected
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role
+  phone        String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  sessionsCreated    Session[]       @relation("CreatedBy")
+  sessionsCancelled  Session[]       @relation("CancelledBy")
+  preAttendances    PreAttendance[] @relation("StudentPreAttendance")
+  attendances       Attendance[]    @relation("StudentAttendance")
+  attendancesMarked Attendance[]    @relation("MarkedBy")
+  payments          Payment[]       @relation("StudentPayment")
+  paymentsReviewed  Payment[]       @relation("ReviewedBy")
+  appConfigsUpdated AppConfig[]     @relation("ConfigUpdatedBy")
+
+  @@map("users")
+}
+
+model Session {
+  id            String    @id @default(uuid())
+  date          DateTime  @db.Date
+  startTime     DateTime  @map("start_time")
+  endTime       DateTime  @map("end_time")
+  place         String
+  notes         String?
+  createdById   String    @map("created_by_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  isCancelled   Boolean   @default(false) @map("is_cancelled")
+  cancelledAt   DateTime? @map("cancelled_at")
+  cancelledById String?   @map("cancelled_by_id")
+
+  createdBy      User            @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  cancelledBy    User?           @relation("CancelledBy", fields: [cancelledById], references: [id], onDelete: Restrict)
+  preAttendances PreAttendance[]
+  attendances    Attendance[]
+  payments       Payment[]
+
+  @@index([date])
+  @@map("sessions")
+}
+
+model PreAttendance {
+  id          String   @id @default(uuid())
+  sessionId   String   @map("session_id")
+  studentId   String   @map("student_id")
+  confirmedAt DateTime @default(now()) @map("confirmed_at")
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student User    @relation("StudentPreAttendance", fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, studentId])
+  @@map("pre_attendances")
+}
+
+model Attendance {
+  id         String   @id @default(uuid())
+  sessionId  String   @map("session_id")
+  studentId  String   @map("student_id")
+  present    Boolean  @default(false)
+  paidCash   Boolean  @default(false) @map("paid_cash")
+  markedById String   @map("marked_by_id")
+  markedAt   DateTime @default(now()) @map("marked_at")
+
+  session  Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student  User    @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Restrict)
+  markedBy User    @relation("MarkedBy", fields: [markedById], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, studentId])
+  @@map("attendances")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  studentId       String        @map("student_id")
+  sessionId       String?       @map("session_id")
+  amount          Decimal       @db.Decimal(10, 2)
+  receiptFilePath String?       @map("receipt_file_path")
+  status          PaymentStatus @default(pending)
+  uploadedAt      DateTime      @default(now()) @map("uploaded_at")
+  reviewedById    String?       @map("reviewed_by_id")
+  reviewedAt      DateTime?     @map("reviewed_at")
+
+  student    User     @relation("StudentPayment", fields: [studentId], references: [id], onDelete: Restrict)
+  session    Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  reviewedBy User?    @relation("ReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([studentId])
+  @@index([status])
+  @@map("payments")
+}
+
+model AppConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  updatedById String   @map("updated_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  updatedBy User @relation("ConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@map("app_configs")
+}
