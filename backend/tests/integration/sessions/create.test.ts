@@ -1,8 +1,10 @@
 import request from 'supertest';
 import { app } from '../../helpers/app';
-import { loginAs } from '../../helpers/auth';
+import { createUser, loginAs } from '../../helpers/auth';
 import { prisma, resetDb } from '../../helpers/db';
 import { validSessionBody, pastDate, futureDate } from '../../helpers/sessions';
+
+const drainEvents = () => new Promise<void>((resolve) => setTimeout(resolve, 100));
 
 const URL = '/api/sessions';
 
@@ -159,6 +161,41 @@ describe('POST /api/sessions', () => {
       const { agent } = await loginAs('teacher');
       const res = await agent.post(URL).send({ ...validSessionBody(), date: '19-04-2099' });
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('notifications — session_created emission', () => {
+    it('all active students get a session_created notification', async () => {
+      const s1 = await createUser('student');
+      const s2 = await createUser('student');
+      await createUser('student', { isActive: false });
+      const { agent } = await loginAs('teacher');
+
+      const res = await agent.post(URL).send(validSessionBody());
+      expect(res.status).toBe(201);
+
+      await drainEvents();
+
+      const notifications = await prisma.notification.findMany({
+        where: { type: 'session_created' },
+      });
+      expect(notifications).toHaveLength(2);
+      const userIds = notifications.map((n) => n.userId);
+      expect(userIds).toContain(s1.id);
+      expect(userIds).toContain(s2.id);
+    });
+
+    it('inactive students do NOT receive session_created notification', async () => {
+      const inactive = await createUser('student', { isActive: false });
+      const { agent } = await loginAs('teacher');
+
+      await agent.post(URL).send(validSessionBody());
+      await drainEvents();
+
+      const notif = await prisma.notification.findFirst({
+        where: { userId: inactive.id, type: 'session_created' },
+      });
+      expect(notif).toBeNull();
     });
   });
 });

@@ -15,6 +15,7 @@ export const prisma = new PrismaClient({
  */
 export async function resetDb(): Promise<void> {
   await prisma.$transaction([
+    prisma.$executeRawUnsafe('TRUNCATE TABLE "notifications" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "payments" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "attendances" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "pre_attendances" CASCADE'),

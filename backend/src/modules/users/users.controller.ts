@@ -90,12 +90,14 @@ export async function patch(req: Request, res: Response, next: NextFunction): Pr
           next(new AppError(403, 'You can only update your own name and phone')); return;
         }
       } else {
-        // teacher updating someone else: only deactivate a student
+        // teacher updating a student: name, phone, isActive allowed
         const target = await getUser(id);
         if (target.role !== 'student') { next(new AppError(403, 'Forbidden')); return; }
-        const allowedKeys = Object.keys(data).filter(k => k !== 'isActive');
-        if (allowedKeys.length > 0 || data.isActive !== false) {
-          next(new AppError(403, 'Teachers can only deactivate students')); return;
+        const disallowedKeys = Object.keys(data).filter(
+          (k) => !['name', 'phone', 'isActive'].includes(k),
+        );
+        if (disallowedKeys.length > 0) {
+          next(new AppError(403, "Teachers can only update students' name, phone, or isActive")); return;
         }
       }
     } else if (isSelf) {

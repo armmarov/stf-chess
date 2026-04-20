@@ -53,5 +53,11 @@ export const useSessionStore = defineStore('sessions', () => {
     return updateSession(id, { isCancelled: true })
   }
 
-  return { sessions, current, loading, fetchSessions, fetchSession, createSession, updateSession, cancelSession }
+  function $reset() {
+    sessions.value = []
+    current.value = null
+    loading.value = false
+  }
+
+  return { sessions, current, loading, fetchSessions, fetchSession, createSession, updateSession, cancelSession, $reset }
 })

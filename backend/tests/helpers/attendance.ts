@@ -12,7 +12,7 @@ export async function createAttendance(
   sessionId: string,
   studentId: string,
   markedById: string,
-  overrides: { present?: boolean; paidCash?: boolean } = {},
+  overrides: { present?: boolean; paidCash?: boolean; markedAt?: Date } = {},
 ) {
   return prisma.attendance.upsert({
     where: { sessionId_studentId: { sessionId, studentId } },
@@ -22,11 +22,13 @@ export async function createAttendance(
       markedById,
       present: overrides.present ?? false,
       paidCash: overrides.paidCash ?? false,
+      ...(overrides.markedAt ? { markedAt: overrides.markedAt } : {}),
     },
     update: {
       markedById,
       present: overrides.present ?? false,
       paidCash: overrides.paidCash ?? false,
+      ...(overrides.markedAt ? { markedAt: overrides.markedAt } : {}),
     },
   });
 }

@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../../utils/prisma';
 import { AppError } from '../../middleware/errorHandler';
 import { CreateSessionInput, UpdateSessionInput, ListSessionsQuery } from './sessions.validators';
+import { createManyNotifications } from '../notifications/notifications.service';
 
 function toDateTime(dateStr: string, timeStr: string): Date {
   const normalized = timeStr.length === 5 ? `${timeStr}:00` : timeStr;
@@ -66,14 +67,50 @@ export async function getSession(id: string, studentId?: string) {
   });
   if (!session) throw new AppError(404, 'Session not found');
 
-  if (!studentId) return session;
+  const [presentCount, paidCash, paidOnline] = await Promise.all([
+    prisma.attendance.count({ where: { sessionId: id, present: true } }),
+    prisma.attendance.findMany({
+      where: { sessionId: id, present: true, paidCash: true },
+      select: { studentId: true },
+    }),
+    prisma.payment.findMany({
+      where: { sessionId: id, status: 'approved' },
+      select: { studentId: true },
+      distinct: ['studentId'],
+    }),
+  ]);
 
-  const preAttendance = await prisma.preAttendance.findUnique({
-    where: { sessionId_studentId: { sessionId: id, studentId } },
-    select: { sessionId: true },
-  });
+  const paidCashCount = paidCash.length;
+  const paidOnlineCount = paidOnline.length;
+  const paidUnion = new Set([
+    ...paidCash.map((p) => p.studentId),
+    ...paidOnline.map((p) => p.studentId),
+  ]);
+  const unpaidCount = Math.max(0, presentCount - paidUnion.size);
 
-  return { ...session, myPreAttended: preAttendance !== null };
+  if (!studentId) return { ...session, presentCount, paidCashCount, paidOnlineCount, unpaidCount };
+
+  const [preAttendance, attendance] = await Promise.all([
+    prisma.preAttendance.findUnique({
+      where: { sessionId_studentId: { sessionId: id, studentId } },
+      select: { sessionId: true },
+    }),
+    prisma.attendance.findUnique({
+      where: { sessionId_studentId: { sessionId: id, studentId } },
+      select: { present: true, paidCash: true },
+    }),
+  ]);
+
+  return {
+    ...session,
+    myPreAttended: preAttendance !== null,
+    myAttended: attendance?.present === true,
+    myPaidCash: attendance?.paidCash === true,
+    presentCount,
+    paidCashCount,
+    paidOnlineCount,
+    unpaidCount,
+  };
 }
 
 export async function createSession(data: CreateSessionInput, createdById: string) {
@@ -93,6 +130,21 @@ export async function createSession(data: CreateSessionInput, createdById: strin
   });
 
   console.log(`[sessions] created ${session.id} by ${createdById}`);
+
+  // Fire-and-forget: notify all active students
+  prisma.user
+    .findMany({ where: { role: 'student', isActive: true }, select: { id: true } })
+    .then((students) =>
+      createManyNotifications(
+        students.map((s) => s.id),
+        'session_created',
+        'New session added',
+        `${session.date.toISOString().slice(0, 10)} at ${session.place}`,
+        `/sessions/${session.id}`,
+      ),
+    )
+    .catch((err) => console.error('[notifications] createSession emission failed:', err));
+
   return session;
 }
 

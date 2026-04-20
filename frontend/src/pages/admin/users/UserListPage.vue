@@ -5,6 +5,8 @@ import { useUserStore } from '@/stores/userStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { Role } from '@/stores/authStore'
 import AppButton from '@/components/AppButton.vue'
+import AppIcon from '@/components/AppIcon.vue'
+import AppWhatsAppLink from '@/components/AppWhatsAppLink.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -52,8 +54,14 @@ const roleBadge: Record<Role, string> = {
 <template>
   <div class="max-w-2xl mx-auto">
     <div class="flex items-center justify-between mb-4">
-      <h1 class="text-lg font-semibold text-gray-900">Users</h1>
-      <AppButton @click="router.push('/admin/users/new')">+ New User</AppButton>
+      <h1 class="text-lg font-semibold text-gray-900 flex items-center gap-1.5">
+        <AppIcon name="users" class="h-5 w-5 text-indigo-600" />
+        Users
+      </h1>
+      <AppButton @click="router.push('/admin/users/new')">
+        <AppIcon name="plus" class="h-4 w-4" />
+        New User
+      </AppButton>
     </div>
 
     <!-- Role tabs -->
@@ -121,7 +129,9 @@ const roleBadge: Record<Role, string> = {
             </span>
           </div>
         </div>
-        <p v-if="user.phone" class="text-xs text-gray-400 mt-1">{{ user.phone }}</p>
+        <p v-if="user.phone" class="text-xs mt-1">
+          <AppWhatsAppLink :phone="user.phone" />
+        </p>
       </div>
     </div>
   </div>

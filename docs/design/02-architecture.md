@@ -102,4 +102,14 @@ backend/
 
 **Common to both:** `.env` for secrets (not committed); frontend built to static assets served by Express or Nginx.
 
+### Environment Variables
+
+| Variable | Required | Default | Notes |
+|----------|:--------:|---------|-------|
+| `DATABASE_URL` | ✓ | — | PostgreSQL connection string |
+| `JWT_SECRET` | ✓ | — | Min 16 chars (enforced at startup) |
+| `PORT` | | `3000` | HTTP listen port |
+| `NODE_ENV` | | `development` | `production` enables cookie `Secure` flag |
+| `UPLOADS_DIR` | | `<project>/backend/uploads` | **Must be a persistent, writable path outside the app bundle in production** (e.g. `/opt/stf/data`). The directory is created automatically at startup (`mkdirSync({ recursive: true })`) if it does not exist. Test environments should use `/tmp/stf-test-uploads` (see `.env.test.example`). |
+
 See `REQUIREMENTS.md §9.6` for deployment decision rationale.

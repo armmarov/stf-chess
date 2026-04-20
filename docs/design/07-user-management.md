@@ -9,7 +9,7 @@
 | View any user | ✓ | | |
 | View student | ✓ | ✓ | |
 | View own profile | ✓ | ✓ | ✓ |
-| Update name / phone | ✓ | | ✓ |
+| Update name / phone | ✓ | ✓ (student only) | ✓ |
 | Deactivate student (`isActive: false`) | ✓ | ✓ | |
 | Deactivate any role | ✓ | | |
 | Re-activate user (`isActive: true`) | ✓ | | |
@@ -62,9 +62,9 @@ User logs in with that password
 
 | Field | Admin | Teacher (on student) | Self |
 |-------|:-----:|:--------------------:|:----:|
-| `name` | ✓ | | ✓ |
-| `phone` | ✓ | | ✓ |
-| `isActive` | ✓ (any value) | ✓ (`false` only on student) | ✗ (403) |
+| `name` | ✓ | ✓ (student only) | ✓ |
+| `phone` | ✓ | ✓ (student only) | ✓ |
+| `isActive` | ✓ (any value) | ✓ (student only) | ✗ (403) |
 | `role` | ✓ | ✗ (403) | ✗ (403) |
 | `username` | ✗ (400 `"Username cannot be changed"`) | ✗ | ✗ |
 | `password` | via `POST /users/:id/password` | | |

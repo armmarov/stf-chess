@@ -6,6 +6,7 @@ import { useToastStore } from '@/stores/toastStore'
 import { getReceiptFullUrl } from '@/api/payments'
 import type { PaymentStatus } from '@/stores/paymentStore'
 import AppButton from '@/components/AppButton.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import { formatDate } from '@/utils/format'
 
 const route = useRoute()
@@ -68,23 +69,38 @@ function openReceipt() {
 
         <dl class="flex flex-col gap-3 text-sm border-t border-gray-100 pt-4">
           <div>
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Amount</dt>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="dollar" class="h-3.5 w-3.5" />
+              Amount
+            </dt>
             <dd class="text-gray-900 mt-0.5">RM {{ parseFloat(payment.amount).toFixed(2) }}</dd>
           </div>
           <div v-if="payment.session">
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Session</dt>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="map-pin" class="h-3.5 w-3.5" />
+              Session
+            </dt>
             <dd class="text-gray-900 mt-0.5">{{ payment.session.place }}</dd>
           </div>
           <div>
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Uploaded</dt>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="clock" class="h-3.5 w-3.5" />
+              Uploaded
+            </dt>
             <dd class="text-gray-900 mt-0.5">{{ new Date(payment.uploadedAt).toLocaleString() }}</dd>
           </div>
           <div v-if="payment.reviewedAt">
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Reviewed</dt>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="user-circle" class="h-3.5 w-3.5" />
+              Reviewed
+            </dt>
             <dd class="text-gray-900 mt-0.5">{{ new Date(payment.reviewedAt).toLocaleString() }}</dd>
           </div>
           <div v-if="payment.note">
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Note</dt>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="document" class="h-3.5 w-3.5" />
+              Note
+            </dt>
             <dd class="text-gray-900 mt-0.5 whitespace-pre-line">{{ payment.note }}</dd>
           </div>
         </dl>

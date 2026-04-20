@@ -72,7 +72,23 @@ describe('PATCH /api/users/:id', () => {
     });
   });
 
-  describe('200 — teacher deactivates student', () => {
+  describe('200 — teacher updates student (name/phone/isActive)', () => {
+    it('teacher can update a student\'s name', async () => {
+      const student = await createUser('student');
+      const { agent } = await loginAs('teacher');
+      const res = await agent.patch(URL(student.id)).send({ name: 'Teacher Updated' });
+      expect(res.status).toBe(200);
+      expect(res.body.user.name).toBe('Teacher Updated');
+    });
+
+    it('teacher can update a student\'s phone', async () => {
+      const student = await createUser('student');
+      const { agent } = await loginAs('teacher');
+      const res = await agent.patch(URL(student.id)).send({ phone: '+60111234567' });
+      expect(res.status).toBe(200);
+      expect(res.body.user.phone).toBe('+60111234567');
+    });
+
     it('teacher can set isActive: false on a student', async () => {
       const student = await createUser('student');
       const { agent } = await loginAs('teacher');
@@ -80,20 +96,33 @@ describe('PATCH /api/users/:id', () => {
       expect(res.status).toBe(200);
       expect(res.body.user.isActive).toBe(false);
     });
-  });
 
-  describe('403 — teacher restrictions', () => {
-    it('teacher cannot update a student\'s name', async () => {
-      const student = await createUser('student');
-      const { agent } = await loginAs('teacher');
-      const res = await agent.patch(URL(student.id)).send({ name: 'New Name' });
-      expect(res.status).toBe(403);
-    });
-
-    it('teacher cannot set isActive: true on a student', async () => {
+    it('teacher can set isActive: true on a student', async () => {
       const student = await createUser('student', { isActive: false });
       const { agent } = await loginAs('teacher');
       const res = await agent.patch(URL(student.id)).send({ isActive: true });
+      expect(res.status).toBe(200);
+      expect(res.body.user.isActive).toBe(true);
+    });
+
+    it('teacher can update name, phone, and isActive together', async () => {
+      const student = await createUser('student');
+      const { agent } = await loginAs('teacher');
+      const res = await agent
+        .patch(URL(student.id))
+        .send({ name: 'Combo Update', phone: '+60129999999', isActive: false });
+      expect(res.status).toBe(200);
+      expect(res.body.user.name).toBe('Combo Update');
+      expect(res.body.user.phone).toBe('+60129999999');
+      expect(res.body.user.isActive).toBe(false);
+    });
+  });
+
+  describe('403 — teacher restrictions', () => {
+    it('teacher cannot set a student\'s role', async () => {
+      const student = await createUser('student');
+      const { agent } = await loginAs('teacher');
+      const res = await agent.patch(URL(student.id)).send({ role: 'admin' });
       expect(res.status).toBe(403);
     });
 

@@ -3,9 +3,11 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePaymentStore } from '@/stores/paymentStore'
 import { useToastStore } from '@/stores/toastStore'
+import { useConfirm } from '@/composables/useConfirm'
 import type { PaymentStatus } from '@/stores/paymentStore'
 import { getReceiptFullUrl } from '@/api/payments'
 import AppButton from '@/components/AppButton.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import { formatDate } from '@/utils/format'
 
 const router = useRouter()
@@ -30,6 +32,7 @@ const cacheKey = computed(() => paymentStore.cacheKey(query.value))
 const payments = computed(() => paymentStore.listCache[cacheKey.value] ?? [])
 
 const reviewingId = ref<string | null>(null)
+const { confirm } = useConfirm()
 
 const statusBadge: Record<PaymentStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -49,6 +52,15 @@ watch(statusFilter, load)
 onMounted(load)
 
 async function quickReview(id: string, decision: 'approve' | 'reject') {
+  if (decision === 'reject') {
+    const ok = await confirm({
+      title: 'Reject payment?',
+      message: 'The student will be notified and can re-upload.',
+      confirmLabel: 'Reject',
+      variant: 'danger',
+    })
+    if (!ok) return
+  }
   reviewingId.value = id
   try {
     await paymentStore.reviewPayment(id, decision)
@@ -69,7 +81,10 @@ async function quickReview(id: string, decision: 'approve' | 'reject') {
 
 <template>
   <div class="max-w-2xl mx-auto">
-    <h1 class="text-lg font-semibold text-gray-900 mb-4">Payment Review</h1>
+    <h1 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
+      <AppIcon name="dollar" class="h-5 w-5 text-indigo-600" />
+      Payment Review
+    </h1>
 
     <!-- Status tabs -->
     <div class="flex gap-1 bg-gray-100 rounded-lg p-1 mb-4">
@@ -112,12 +127,13 @@ async function quickReview(id: string, decision: 'approve' | 'reject') {
         >
           <div class="min-w-0">
             <p class="font-medium text-gray-900 text-sm truncate">{{ payment.student.name }}</p>
-            <p class="text-xs text-gray-500 mt-0.5">
-              {{ payment.session ? formatDate(payment.session.date) : 'No session' }}
-              · RM {{ parseFloat(payment.amount).toFixed(2) }}
+            <p v-if="payment.session" class="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+              <AppIcon name="calendar" class="h-3 w-3 shrink-0" />
+              <span class="truncate">{{ formatDate(payment.session.date) }} · {{ payment.session.place }}</span>
             </p>
+            <p v-else class="text-xs text-gray-400 mt-0.5">No session</p>
             <p class="text-xs text-gray-400 mt-0.5">
-              Uploaded {{ new Date(payment.uploadedAt).toLocaleDateString() }}
+              RM {{ parseFloat(payment.amount).toFixed(2) }} · Uploaded {{ new Date(payment.uploadedAt).toLocaleDateString() }}
             </p>
           </div>
           <span
@@ -144,6 +160,7 @@ async function quickReview(id: string, decision: 'approve' | 'reject') {
               :disabled="reviewingId === payment.id"
               @click="quickReview(payment.id, 'approve')"
             >
+              <AppIcon v-if="reviewingId !== payment.id" name="check" class="h-4 w-4" />
               {{ reviewingId === payment.id ? '…' : 'Approve' }}
             </AppButton>
             <AppButton
@@ -151,6 +168,7 @@ async function quickReview(id: string, decision: 'approve' | 'reject') {
               :disabled="reviewingId === payment.id"
               @click="quickReview(payment.id, 'reject')"
             >
+              <AppIcon v-if="reviewingId !== payment.id" name="x-mark" class="h-4 w-4" />
               {{ reviewingId === payment.id ? '…' : 'Reject' }}
             </AppButton>
           </template>

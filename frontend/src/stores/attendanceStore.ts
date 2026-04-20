@@ -37,5 +37,11 @@ export const useAttendanceStore = defineStore('attendance', () => {
     }
   }
 
-  return { rosterBySession, preAttendanceBySession, loading, fetchRoster, saveRoster, togglePreAttendance }
+  function $reset() {
+    rosterBySession.value = {}
+    preAttendanceBySession.value = {}
+    loading.value = false
+  }
+
+  return { rosterBySession, preAttendanceBySession, loading, fetchRoster, saveRoster, togglePreAttendance, $reset }
 })

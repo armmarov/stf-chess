@@ -15,6 +15,11 @@ export const listPaymentsQuerySchema = z.object({
   sessionId: z.string().uuid().optional(),
 });
 
+export const historyQuerySchema = z.object({
+  studentId: z.string().uuid().optional(),
+});
+
 export type UploadPaymentInput = z.infer<typeof uploadPaymentSchema>;
 export type ReviewPaymentInput = z.infer<typeof reviewPaymentSchema>;
 export type ListPaymentsQuery = z.infer<typeof listPaymentsQuerySchema>;
+export type HistoryQuery = z.infer<typeof historyQuerySchema>;

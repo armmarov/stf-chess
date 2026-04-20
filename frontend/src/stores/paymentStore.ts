@@ -55,6 +55,11 @@ export const usePaymentStore = defineStore('payments', () => {
     return payment
   }
 
-  return { listCache, current, loading, cacheKey, fetchPayments, fetchPayment, uploadPayment, reviewPayment }
+  function $reset() {
+    listCache.value = {}
+    current.value = null
+    loading.value = false
+  }
 
+  return { listCache, current, loading, cacheKey, fetchPayments, fetchPayment, uploadPayment, reviewPayment, $reset }
 })

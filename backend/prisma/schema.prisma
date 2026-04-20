@@ -39,6 +39,7 @@ model User {
   payments          Payment[]       @relation("StudentPayment")
   paymentsReviewed  Payment[]       @relation("ReviewedBy")
   appConfigsUpdated AppConfig[]     @relation("ConfigUpdatedBy")
+  notifications     Notification[]
 
   @@map("users")
 }
@@ -127,4 +128,31 @@ model AppConfig {
   updatedBy User @relation("ConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
 
   @@map("app_configs")
+}
+
+enum NotificationType {
+  session_created
+  pre_attendance_set
+  attendance_marked_present
+  paid_cash
+  receipt_uploaded
+  payment_reviewed
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  message   String
+  linkPath  String?          @map("link_path")
+  payload   Json?
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }

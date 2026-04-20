@@ -4,6 +4,7 @@ import { createUser, loginAs } from '../../helpers/auth';
 import { resetDb } from '../../helpers/db';
 import { createSessionRecord } from '../../helpers/sessions';
 import { createPreAttendance, createAttendance } from '../../helpers/attendance';
+import { createPaymentRecord } from '../../helpers/payments';
 
 const URL = (sessionId: string) => `/api/sessions/${sessionId}/attendance`;
 const UNKNOWN_ID = '00000000-0000-0000-0000-000000000000';
@@ -141,6 +142,62 @@ describe('GET /api/sessions/:id/attendance', () => {
       );
       expect(entry.present).toBe(true);
       expect(entry.paidCash).toBe(true);
+    });
+
+    it('student with pending payment → onlinePaymentStatus === "pending"', async () => {
+      const teacher = await createUser('teacher');
+      const student = await createUser('student');
+      const session = await createSessionRecord(teacher.id);
+      await createPaymentRecord(student.id, session.id, { status: 'pending' });
+      const { agent } = await loginAs('admin');
+
+      const res = await agent.get(URL(session.id));
+
+      expect(res.status).toBe(200);
+      const entry = res.body.roster.find(
+        (r: { student: { id: string } }) => r.student.id === student.id,
+      );
+      expect(entry.onlinePaymentStatus).toBe('pending');
+    });
+
+    it('student with no payment → onlinePaymentStatus === null', async () => {
+      const teacher = await createUser('teacher');
+      const student = await createUser('student');
+      const session = await createSessionRecord(teacher.id);
+      const { agent } = await loginAs('admin');
+
+      const res = await agent.get(URL(session.id));
+
+      expect(res.status).toBe(200);
+      const entry = res.body.roster.find(
+        (r: { student: { id: string } }) => r.student.id === student.id,
+      );
+      expect(entry.onlinePaymentStatus).toBeNull();
+    });
+
+    it('student with rejected then pending payments → onlinePaymentStatus === "pending" (most recent wins)', async () => {
+      const teacher = await createUser('teacher');
+      const student = await createUser('student');
+      const session = await createSessionRecord(teacher.id);
+      const admin = await createUser('admin');
+      await createPaymentRecord(student.id, session.id, {
+        status: 'rejected',
+        reviewedById: admin.id,
+        uploadedAt: new Date(Date.now() - 5000),
+      });
+      await createPaymentRecord(student.id, session.id, {
+        status: 'pending',
+        uploadedAt: new Date(Date.now() - 1000),
+      });
+      const { agent } = await loginAs('admin');
+
+      const res = await agent.get(URL(session.id));
+
+      expect(res.status).toBe(200);
+      const entry = res.body.roster.find(
+        (r: { student: { id: string } }) => r.student.id === student.id,
+      );
+      expect(entry.onlinePaymentStatus).toBe('pending');
     });
 
     it('admin can also fetch roster', async () => {

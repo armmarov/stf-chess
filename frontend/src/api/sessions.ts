@@ -25,12 +25,18 @@ export interface SessionListItem {
   _count: SessionCount
   // Included by BE when requester is a student — undefined otherwise
   myPreAttended?: boolean
+  myAttended?: boolean
+  myPaidCash?: boolean
 }
 
 // Shape returned by GET /sessions/:id, POST, PATCH (includes relations)
 export interface Session extends SessionListItem {
   createdBy: SessionUser
   cancelledBy: SessionUser | null
+  presentCount: number
+  paidCashCount?: number
+  paidOnlineCount?: number
+  unpaidCount?: number
 }
 
 export interface ListSessionsQuery {

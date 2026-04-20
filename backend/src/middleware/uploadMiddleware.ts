@@ -1,7 +1,9 @@
+import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { Request } from 'express';
+import { env } from '../config/env';
 
 const ALLOWED_MIMES = new Set(['image/jpeg', 'image/png', 'application/pdf']);
 const MIME_TO_EXT: Record<string, string> = {
@@ -10,7 +12,9 @@ const MIME_TO_EXT: Record<string, string> = {
   'application/pdf': '.pdf',
 };
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
-const UPLOADS_DIR = path.resolve(__dirname, '../../uploads');
+const UPLOADS_DIR = env.UPLOADS_DIR;
+
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),

@@ -13,7 +13,11 @@ import {
   getPayment,
   getReceiptFile,
   reviewPayment,
+  getHistory,
+  getReceiptData,
+  streamReceiptPdf,
 } from './payments.service';
+import { historyQuerySchema } from './payments.validators';
 
 const MIME_MAP: Record<string, string> = {
   '.jpg': 'image/jpeg',
@@ -79,6 +83,40 @@ export async function downloadReceipt(req: Request, res: Response, next: NextFun
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.sendFile(filePath);
+  } catch (err) { next(err); }
+}
+
+export async function history(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const requester = req.user!;
+    let targetStudentId: string;
+
+    if (requester.role === 'student') {
+      targetStudentId = requester.id;
+    } else if (requester.role === 'admin' || requester.role === 'teacher') {
+      const parsed = historyQuerySchema.safeParse(req.query);
+      if (!parsed.success) { next(parsed.error); return; }
+      if (!parsed.data.studentId) {
+        next(new AppError(400, 'studentId query parameter is required')); return;
+      }
+      targetStudentId = parsed.data.studentId;
+    } else {
+      next(new AppError(403, 'Forbidden')); return;
+    }
+
+    const entries = await getHistory(targetStudentId);
+    res.json({ entries });
+  } catch (err) { next(err); }
+}
+
+export async function receiptPdf(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const requester = req.user!;
+    if (requester.role !== 'student' && requester.role !== 'admin' && requester.role !== 'teacher') {
+      next(new AppError(403, 'Forbidden')); return;
+    }
+    const data = await getReceiptData(req.params.entryId, requester.id, requester.role);
+    streamReceiptPdf(req.params.entryId, data, res);
   } catch (err) { next(err); }
 }
 

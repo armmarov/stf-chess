@@ -4,6 +4,7 @@ import { useConfigStore } from '@/stores/configStore'
 import { useToastStore } from '@/stores/toastStore'
 import AppButton from '@/components/AppButton.vue'
 import AppModal from '@/components/AppModal.vue'
+import AppIcon from '@/components/AppIcon.vue'
 
 const configStore = useConfigStore()
 const toastStore = useToastStore()
@@ -46,7 +47,10 @@ async function confirmSave() {
 
 <template>
   <div class="max-w-lg mx-auto">
-    <h1 class="text-lg font-semibold text-gray-900 mb-1">Fee Configuration</h1>
+    <h1 class="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-1.5">
+      <AppIcon name="settings" class="h-5 w-5 text-indigo-600" />
+      Fee Configuration
+    </h1>
     <p class="text-sm text-gray-500 mb-6">Set the global session fee for new payments.</p>
 
     <div class="bg-white rounded-lg border border-gray-200 p-4 flex flex-col gap-4">
@@ -55,12 +59,16 @@ async function confirmSave() {
       </div>
 
       <template v-else>
-        <div v-if="configStore.fee !== null" class="text-sm text-gray-600">
+        <div v-if="configStore.fee !== null" class="text-sm text-gray-600 flex items-center gap-1">
+          <AppIcon name="dollar" class="h-4 w-4 text-gray-400" />
           Current fee: <span class="font-semibold text-gray-900">RM {{ configStore.fee.toFixed(2) }}</span>
         </div>
 
         <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium text-gray-700">New Fee (RM)</label>
+          <label class="text-sm font-medium text-gray-700 flex items-center gap-1">
+            <AppIcon name="dollar" class="h-4 w-4 text-gray-400" />
+            New Fee (RM)
+          </label>
           <div class="relative">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">RM</span>
             <input

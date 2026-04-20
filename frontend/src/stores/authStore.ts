@@ -1,6 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import * as authApi from '@/api/auth'
+import { useSessionStore } from './sessionStore'
+import { usePaymentStore } from './paymentStore'
+import { useAttendanceStore } from './attendanceStore'
+import { useUserStore } from './userStore'
+import { useConfigStore } from './configStore'
+import { useNotificationStore } from './notificationStore'
+import { useDashboardStore } from './dashboardStore'
 
 export type Role = 'admin' | 'teacher' | 'coach' | 'student'
 
@@ -16,7 +23,18 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
   const initialized = ref(false)
 
+  function resetOtherStores() {
+    useSessionStore().$reset()
+    usePaymentStore().$reset()
+    useAttendanceStore().$reset()
+    useUserStore().$reset()
+    useConfigStore().$reset()
+    useNotificationStore().$reset()
+    useDashboardStore().$reset()
+  }
+
   async function login(username: string, password: string): Promise<void> {
+    resetOtherStores()
     loading.value = true
     try {
       user.value = await authApi.login(username, password)
@@ -26,6 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout(): Promise<void> {
+    resetOtherStores()
     try {
       await authApi.logout()
     } finally {
@@ -45,6 +64,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Called by the axios interceptor to clear session without an API call
   function clearSession(): void {
+    resetOtherStores()
     user.value = null
   }
 

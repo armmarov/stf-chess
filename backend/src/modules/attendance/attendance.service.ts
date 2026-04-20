@@ -1,6 +1,7 @@
 import prisma from '../../utils/prisma';
 import { AppError } from '../../middleware/errorHandler';
 import { MarkAttendanceInput } from './attendance.validators';
+import { createManyNotifications } from '../notifications/notifications.service';
 
 const PRE_ATTENDANCE_CUTOFF_MS = 10 * 60 * 1000;
 
@@ -27,11 +28,38 @@ export async function togglePreAttendance(
   }
 
   if (confirmed) {
+    const isNew = !(await prisma.preAttendance.findUnique({
+      where: { sessionId_studentId: { sessionId, studentId } },
+    }));
+
     const record = await prisma.preAttendance.upsert({
       where: { sessionId_studentId: { sessionId, studentId } },
       create: { sessionId, studentId, confirmedAt: new Date() },
       update: { confirmedAt: new Date() },
     });
+
+    // Fire-and-forget: notify all active teachers + admins (only on first confirmation)
+    if (isNew) {
+      Promise.all([
+        prisma.user.findUnique({ where: { id: studentId }, select: { name: true } }),
+        prisma.user.findMany({
+          where: { role: { in: ['admin', 'teacher'] }, isActive: true },
+          select: { id: true },
+        }),
+      ])
+        .then(([student, staff]) => {
+          if (!student) return;
+          return createManyNotifications(
+            staff.map((s) => s.id).filter((id) => id !== studentId),
+            'pre_attendance_set',
+            'Student confirmed attendance',
+            `${student.name} will attend ${session.date.toISOString().slice(0, 10)}`,
+            `/sessions/${sessionId}`,
+          );
+        })
+        .catch((err) => console.error('[notifications] togglePreAttendance emission failed:', err));
+    }
+
     return { sessionId: record.sessionId, studentId: record.studentId, confirmedAt: record.confirmedAt };
   } else {
     const existing = await prisma.preAttendance.findUnique({
@@ -53,7 +81,7 @@ export async function getAttendanceRoster(sessionId: string) {
   });
   if (!session) throw new AppError(404, 'Session not found');
 
-  const [students, preAttendances, attendances] = await Promise.all([
+  const [students, preAttendances, attendances, payments] = await Promise.all([
     prisma.user.findMany({
       where: { role: 'student', isActive: true },
       select: { id: true, name: true, username: true },
@@ -67,18 +95,28 @@ export async function getAttendanceRoster(sessionId: string) {
       where: { sessionId },
       select: { studentId: true, present: true, paidCash: true },
     }),
+    prisma.payment.findMany({
+      where: { sessionId },
+      orderBy: { uploadedAt: 'desc' },
+      select: { studentId: true, status: true },
+    }),
   ]);
 
   const preAttendedSet = new Set(preAttendances.map((p) => p.studentId));
   const attendanceMap = new Map(
     attendances.map((a) => [a.studentId, { present: a.present, paidCash: a.paidCash }]),
   );
+  const paymentByStudent = new Map<string, 'pending' | 'approved' | 'rejected'>();
+  for (const p of payments) {
+    if (!paymentByStudent.has(p.studentId)) paymentByStudent.set(p.studentId, p.status);
+  }
 
   const roster = students.map((student) => ({
     student,
     preAttended: preAttendedSet.has(student.id),
     present: attendanceMap.get(student.id)?.present ?? false,
     paidCash: attendanceMap.get(student.id)?.paidCash ?? false,
+    onlinePaymentStatus: paymentByStudent.get(student.id) ?? null,
   }));
 
   return { session, roster };
@@ -109,6 +147,13 @@ export async function markAttendance(
 
   const markedAt = new Date();
 
+  // Fetch existing rows before upsert for transition detection
+  const existingRows = await prisma.attendance.findMany({
+    where: { sessionId, studentId: { in: studentIds } },
+    select: { studentId: true, present: true, paidCash: true },
+  });
+  const existingMap = new Map(existingRows.map((a) => [a.studentId, a]));
+
   await Promise.all(
     data.entries.map((entry) =>
       prisma.attendance.upsert({
@@ -130,6 +175,39 @@ export async function markAttendance(
       }),
     ),
   );
+
+  // Fire-and-forget: notify students on present / paidCash transitions
+  const presentTransitions: string[] = [];
+  const paidCashTransitions: string[] = [];
+  for (const entry of data.entries) {
+    const prev = existingMap.get(entry.studentId);
+    if (entry.present && !prev?.present) presentTransitions.push(entry.studentId);
+    if (entry.paidCash && !prev?.paidCash) paidCashTransitions.push(entry.studentId);
+  }
+
+  if (presentTransitions.length > 0 || paidCashTransitions.length > 0) {
+    const dateStr = session.date.toISOString().slice(0, 10);
+    Promise.all([
+      presentTransitions.length > 0
+        ? createManyNotifications(
+            presentTransitions,
+            'attendance_marked_present',
+            'You were marked present',
+            `Session on ${dateStr}`,
+            `/sessions/${sessionId}`,
+          )
+        : Promise.resolve(),
+      paidCashTransitions.length > 0
+        ? createManyNotifications(
+            paidCashTransitions,
+            'paid_cash',
+            'Cash payment recorded',
+            `Your teacher marked you as paid for ${dateStr}`,
+            `/sessions/${sessionId}`,
+          )
+        : Promise.resolve(),
+    ]).catch((err) => console.error('[notifications] markAttendance emission failed:', err));
+  }
 
   return { updated: data.entries.length };
 }

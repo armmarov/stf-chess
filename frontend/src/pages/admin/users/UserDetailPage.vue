@@ -4,9 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
+import { useConfirm } from '@/composables/useConfirm'
 import AppButton from '@/components/AppButton.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppModal from '@/components/AppModal.vue'
+import AppIcon from '@/components/AppIcon.vue'
+import AppWhatsAppLink from '@/components/AppWhatsAppLink.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,6 +18,7 @@ const auth = useAuthStore()
 const toastStore = useToastStore()
 
 const id = route.params.id as string
+const { confirm } = useConfirm()
 
 const user = computed(() => userStore.current)
 const isSelf = computed(() => auth.user?.id === id)
@@ -37,6 +41,15 @@ async function toggleActive() {
   if (isSelf.value && user.value.isActive) {
     toastStore.show('You cannot deactivate your own account.', 'error')
     return
+  }
+  if (user.value.isActive) {
+    const ok = await confirm({
+      title: 'Deactivate user?',
+      message: "They won't be able to log in until reactivated.",
+      confirmLabel: 'Deactivate',
+      variant: 'danger',
+    })
+    if (!ok) return
   }
   togglingActive.value = true
   toggleError.value = ''
@@ -110,20 +123,28 @@ const roleBadge: Record<string, string> = {
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="flex items-start justify-between mb-4 gap-3">
           <div class="min-w-0">
-            <h1 class="text-lg font-semibold text-gray-900 truncate">{{ user.name }}</h1>
-            <p class="text-sm text-gray-500 mt-0.5">@{{ user.username }}</p>
+            <h1 class="text-lg font-semibold text-gray-900 flex items-center gap-1.5">
+              <AppIcon name="user" class="h-4 w-4 text-indigo-500 shrink-0" />
+              <span class="truncate">{{ user.name }}</span>
+            </h1>
+            <p class="text-sm text-gray-500 mt-0.5 flex items-center gap-1">
+              <AppIcon name="hash" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
+              {{ user.username }}
+            </p>
           </div>
           <div class="flex flex-col items-end gap-1 shrink-0">
             <span
-              class="inline-block rounded-full text-xs px-2 py-0.5 font-medium capitalize"
+              class="inline-flex items-center gap-0.5 rounded-full text-xs px-2 py-0.5 font-medium capitalize"
               :class="roleBadge[user.role] ?? 'bg-gray-100 text-gray-600'"
             >
+              <AppIcon name="tag" class="h-3 w-3" />
               {{ user.role }}
             </span>
             <span
-              class="inline-block rounded-full text-xs px-2 py-0.5 font-medium"
+              class="inline-flex items-center gap-0.5 rounded-full text-xs px-2 py-0.5 font-medium"
               :class="user.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'"
             >
+              <AppIcon name="check-circle" class="h-3 w-3" />
               {{ user.isActive ? 'Active' : 'Inactive' }}
             </span>
           </div>
@@ -131,11 +152,19 @@ const roleBadge: Record<string, string> = {
 
         <dl class="flex flex-col gap-3 text-sm border-t border-gray-100 pt-4">
           <div v-if="user.phone">
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Phone</dt>
-            <dd class="text-gray-900 mt-0.5">{{ user.phone }}</dd>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="phone" class="h-3.5 w-3.5" />
+              Phone
+            </dt>
+            <dd class="text-gray-900 mt-0.5">
+              <AppWhatsAppLink :phone="user.phone" />
+            </dd>
           </div>
           <div>
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Member since</dt>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="calendar" class="h-3.5 w-3.5" />
+              Member since
+            </dt>
             <dd class="text-gray-900 mt-0.5">{{ new Date(user.createdAt).toLocaleDateString() }}</dd>
           </div>
         </dl>
@@ -157,7 +186,7 @@ const roleBadge: Record<string, string> = {
         >
           {{ togglingActive ? 'Updating…' : user.isActive ? 'Deactivate' : 'Reactivate' }}
         </AppButton>
-        <AppButton variant="secondary" class="w-full" @click="openPasswordModal">
+        <AppButton variant="danger" class="w-full" @click="openPasswordModal">
           Reset Password
         </AppButton>
       </div>

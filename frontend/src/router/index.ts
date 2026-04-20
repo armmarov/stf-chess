@@ -88,6 +88,11 @@ const router = createRouter({
           name: 'teacher-student-new',
           component: () => import('@/pages/teacher/students/StudentFormPage.vue'),
         },
+        {
+          path: 'students/:id/edit',
+          name: 'teacher-student-edit',
+          component: () => import('@/pages/teacher/students/StudentEditPage.vue'),
+        },
       ],
     },
     {
@@ -104,11 +109,6 @@ const router = createRouter({
           path: 'payments',
           name: 'student-payment-list',
           component: () => import('@/pages/student/payments/PaymentListPage.vue'),
-        },
-        {
-          path: 'payments/new',
-          name: 'student-payment-new',
-          component: () => import('@/pages/student/payments/PaymentUploadPage.vue'),
         },
         {
           path: 'payments/:id',
@@ -165,6 +165,17 @@ const router = createRouter({
           path: 'review/:id',
           name: 'payment-review-detail',
           component: () => import('@/pages/payments/PaymentReviewDetailPage.vue'),
+        },
+      ],
+    },
+    {
+      path: '/notifications',
+      component: () => import('@/layouts/AppLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'notifications',
+          component: () => import('@/pages/NotificationsPage.vue'),
         },
       ],
     },

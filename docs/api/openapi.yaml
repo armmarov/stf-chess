@@ -222,7 +222,7 @@ components:
 
     Session:
       type: object
-      required: [id, date, startTime, endTime, place, isCancelled, createdAt, createdById, createdBy]
+      required: [id, date, startTime, endTime, place, isCancelled, createdAt, createdById, createdBy, presentCount, paidCashCount, paidOnlineCount, unpaidCount]
       description: |
         Full session object returned by GET /sessions/{id}, POST, and PATCH.
         Includes embedded createdBy / cancelledBy relations. Row is never deleted — cancellation is soft.
@@ -270,9 +270,27 @@ components:
           nullable: true
           allOf:
             - $ref: '#/components/schemas/UserSummary'
+        presentCount:
+          type: integer
+          description: Count of Attendance records with present=true for this session. Present for all roles.
+        paidCashCount:
+          type: integer
+          description: Present students with paidCash=true (cash collected by teacher at the session).
+        paidOnlineCount:
+          type: integer
+          description: Distinct present students with an approved online Payment for this session.
+        unpaidCount:
+          type: integer
+          description: "Present students not covered by either payment source: max(0, presentCount − (paidCash ∪ paidOnline))."
         myPreAttended:
           type: boolean
           description: "Present only for student role. True if the requesting student has confirmed pre-attendance for this session."
+        myAttended:
+          type: boolean
+          description: "Present only for student role. True if the requesting student has an Attendance record with present=true for this session; false otherwise."
+        myPaidCash:
+          type: boolean
+          description: "Present only for student role. True if the requesting student's Attendance record has paidCash=true for this session; false otherwise."
 
     SessionResponse:
       type: object
@@ -406,7 +424,7 @@ components:
 
     AttendanceRosterEntry:
       type: object
-      required: [student, preAttended, present, paidCash]
+      required: [student, preAttended, present, paidCash, onlinePaymentStatus]
       properties:
         student:
           $ref: '#/components/schemas/StudentSummary'
@@ -419,6 +437,11 @@ components:
         paidCash:
           type: boolean
           description: Whether the student paid cash at the session.
+        onlinePaymentStatus:
+          type: string
+          enum: [pending, approved, rejected]
+          nullable: true
+          description: Status of the student's most recent Payment for this session. Null if no payment has been uploaded.
 
     AttendanceRoster:
       type: object
@@ -562,6 +585,63 @@ components:
           items:
             $ref: '#/components/schemas/Payment'
 
+    HistoryEntry:
+      type: object
+      required: [id, method, sessionId, sessionDate, sessionPlace, amount, status, paidAt, paymentId, reviewNote]
+      description: |
+        Single payment history entry. Covers both cash (teacher-marked) and online (receipt uploaded) payments.
+        Online entries include all statuses (pending, approved, rejected) — not just approved.
+        `id` is a compound string: `"online:<paymentId>"` for online entries, `"cash:<sessionId>:<studentId>"` for cash entries.
+        **Known limitation:** cash entry `amount` reflects the *current* session fee at request time, not the fee active at payment time.
+      properties:
+        id:
+          type: string
+          description: "Compound entry ID. Format: \"online:<uuid>\" or \"cash:<sessionId>:<studentId>\". URL-encode colons when using as a path segment."
+          example: online:abc12345-0000-0000-0000-000000000001
+        method:
+          type: string
+          enum: [cash, online]
+        sessionId:
+          type: string
+          format: uuid
+        sessionDate:
+          type: string
+          format: date-time
+          description: ISO 8601 date of the session.
+        sessionPlace:
+          type: string
+        amount:
+          type: string
+          description: "Decimal string, e.g. \"50.00\". For cash entries: current fee at request time (not historical snapshot)."
+          example: "50.00"
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          description: "Payment status. Cash entries are always \"approved\". Online entries reflect the actual PaymentStatus."
+        paidAt:
+          type: string
+          format: date-time
+          description: "For online approved: reviewedAt. For online pending/rejected: uploadedAt. For cash: Attendance markedAt."
+        paymentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Present for online entries; null for cash entries.
+        reviewNote:
+          type: string
+          nullable: true
+          description: Reserved for future use. Always null in v1.
+
+    HistoryListResponse:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryEntry'
+          description: Sorted by paidAt descending.
+
     FeeResponse:
       type: object
       required: [fee]
@@ -615,6 +695,120 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    StudentDashboardStats:
+      type: object
+      required: [totalSessions, sessionsJoined, pendingPayments]
+      description: Dashboard stats returned for the student role.
+      properties:
+        totalSessions:
+          type: integer
+          description: Non-cancelled sessions (isCancelled=false).
+        sessionsJoined:
+          type: integer
+          description: Attendance rows where present=true for the requesting student.
+        pendingPayments:
+          type: integer
+          description: Payment rows where status='pending' for the requesting student.
+
+    TeacherDashboardStats:
+      type: object
+      required: [totalSessions, totalStudents]
+      description: Dashboard stats returned for the teacher role.
+      properties:
+        totalSessions:
+          type: integer
+          description: Non-cancelled sessions (isCancelled=false).
+        totalStudents:
+          type: integer
+          description: Active students only (isActive=true).
+
+    AdminDashboardStats:
+      type: object
+      required: [totalSessions, totalStudents, totalTeachers]
+      description: Dashboard stats returned for the admin role.
+      properties:
+        totalSessions:
+          type: integer
+          description: Non-cancelled sessions (isCancelled=false).
+        totalStudents:
+          type: integer
+          description: Active students only (isActive=true).
+        totalTeachers:
+          type: integer
+          description: Active teachers only (isActive=true).
+
+    DashboardStatsResponse:
+      type: object
+      required: [stats]
+      properties:
+        stats:
+          oneOf:
+            - $ref: '#/components/schemas/StudentDashboardStats'
+            - $ref: '#/components/schemas/TeacherDashboardStats'
+            - $ref: '#/components/schemas/AdminDashboardStats'
+          description: Shape depends on the authenticated user's role.
+
+    NotificationType:
+      type: string
+      enum:
+        - session_created
+        - pre_attendance_set
+        - attendance_marked_present
+        - paid_cash
+        - receipt_uploaded
+        - payment_reviewed
+      description: Event that triggered the notification.
+
+    Notification:
+      type: object
+      required: [id, type, title, message, readAt, createdAt]
+      description: |
+        In-app notification for the authenticated user. Emitted fire-and-forget — delivery is not guaranteed.
+        `payload` is reserved for future structured data; currently always null.
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/NotificationType'
+        title:
+          type: string
+        message:
+          type: string
+        linkPath:
+          type: string
+          nullable: true
+          description: "Optional in-app navigation path, e.g. /sessions/<id>."
+        payload:
+          nullable: true
+          description: Reserved structured data. Currently always null.
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Null when the notification is unread.
+        createdAt:
+          type: string
+          format: date-time
+
+    NotificationListResponse:
+      type: object
+      required: [notifications]
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+          description: Sorted by createdAt descending.
+
+    UnreadCountResponse:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: integer
+          description: Number of notifications where readAt is null.
 
     Error:
       type: object
@@ -788,8 +982,8 @@ paths:
       tags: [Users]
       description: |
         Partially updates a user. Allowed fields depend on caller role:
-        - **Admin**: `name`, `phone`, `isActive`.
-        - **Teacher**: only `isActive: false` on a student target.
+        - **Admin**: `name`, `phone`, `isActive`, `role`.
+        - **Teacher**: `name`, `phone`, `isActive` on a student target only. Any other field or non-student target returns 403.
         - **Self** (any role): `name`, `phone` only.
         `username` is never updatable — including it returns 400.
       parameters:
@@ -831,7 +1025,7 @@ paths:
             Multiple cases depending on caller and target:
             - Coach/student accessing non-self → `"Forbidden"`
             - Teacher accessing non-student → `"Forbidden"`
-            - Teacher setting fields other than `isActive: false` on a student → `"Teachers can only deactivate students"`
+            - Teacher setting a disallowed field (`role`, `username`, etc.) on a student → `"Teachers can only update students' name, phone, or isActive"`
             - Self or teacher-self setting `isActive` or `role` → `"You can only update your own name and phone"`
           content:
             application/json:
@@ -841,9 +1035,9 @@ paths:
                 forbidden:
                   value:
                     error: Forbidden
-                teacher_deactivate_only:
+                teacher_disallowed_field:
                   value:
-                    error: Teachers can only deactivate students
+                    error: "Teachers can only update students' name, phone, or isActive"
                 self_name_phone_only:
                   value:
                     error: You can only update your own name and phone
@@ -1838,3 +2032,269 @@ paths:
                 already_rejected:
                   value:
                     error: Payment has already been rejected
+
+  /payments/history:
+    get:
+      summary: Get payment history for a student
+      operationId: getPaymentHistory
+      tags: [Payments]
+      description: |
+        Returns a unified list of cash and online payments for a student, sorted by `paidAt` descending.
+
+        **Role access:**
+        - **Student**: always receives own history; `studentId` query param is ignored.
+        - **Admin / Teacher**: `studentId` is required — returns 400 if omitted.
+        - **Coach**: 403.
+
+        **Cash entry caveat:** `amount` on cash entries reflects the current session fee at request time, not the fee at the time the cash was paid. This is a known Phase 1 limitation.
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Required for admin/teacher. Ignored for students (own history always returned).
+      responses:
+        '200':
+          description: Payment history entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryListResponse'
+        '400':
+          description: Admin or teacher omitted required `studentId`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is coach
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+
+  /payments/history/{entryId}/receipt:
+    get:
+      summary: Download a generated PDF receipt for a history entry
+      operationId: downloadHistoryReceipt
+      tags: [Payments]
+      description: |
+        Generates and streams a PDF receipt for a single history entry (cash or online).
+
+        The PDF contains: student name/username, session date/place, amount, payment method, paid-at timestamp, and reviewer name (online) or attendance-marker name (cash).
+
+        `entryId` is the compound `id` value from `GET /payments/history`:
+        - Online: `online:<paymentId>` → URL-encode as `online%3A<paymentId>`
+        - Cash: `cash:<sessionId>:<studentId>` → URL-encode colons
+
+        **Role access:**
+        - **Student**: own history entries only (403 for other students).
+        - **Admin / Teacher**: any entry.
+        - **Coach**: 403.
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: "Compound entry ID from HistoryEntry.id. Colons must be URL-encoded (e.g. online%3A<uuid>)."
+          example: online%3Aabc12345-0000-0000-0000-000000000001
+      responses:
+        '200':
+          description: Generated PDF receipt
+          headers:
+            Content-Disposition:
+              description: 'attachment; filename="receipt-<shortid>.pdf"'
+              schema:
+                type: string
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Coach role, or student accessing another student's receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Entry ID unknown or not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Entry exists but is not in approved state — receipt PDF cannot be generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Receipt available only for approved payments
+
+  /notifications:
+    get:
+      summary: List notifications for the authenticated user
+      operationId: listNotifications
+      tags: [Notifications]
+      description: |
+        Returns the caller's own notifications sorted by `createdAt` descending.
+        Use `unread=true` to fetch only unread notifications. Any authenticated role.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Maximum number of notifications to return.
+        - name: unread
+          in: query
+          schema:
+            type: boolean
+          description: "When `true`, returns only notifications where `readAt` is null. Omit or set `false` for all."
+      responses:
+        '200':
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResponse'
+        '400':
+          description: Validation error (limit out of range or invalid unread value)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /notifications/unread-count:
+    get:
+      summary: Get unread notification count for the authenticated user
+      operationId: getUnreadCount
+      tags: [Notifications]
+      description: Returns the count of notifications where `readAt` is null. Intended for polling by the frontend bell indicator.
+      responses:
+        '200':
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnreadCountResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /notifications/read-all:
+    post:
+      summary: Mark all notifications as read
+      operationId: markAllNotificationsRead
+      tags: [Notifications]
+      description: Sets `readAt = now()` on all unread notifications for the caller. Idempotent — safe to call when already all-read.
+      responses:
+        '204':
+          description: All notifications marked as read. No response body.
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /notifications/{id}/read:
+    post:
+      summary: Mark a single notification as read
+      operationId: markNotificationRead
+      tags: [Notifications]
+      description: |
+        Sets `readAt = now()` on the specified notification. Idempotent — calling again on an already-read notification is a no-op (still 204).
+        Returns 404 if the notification does not exist or belongs to a different user.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Notification ID
+      responses:
+        '204':
+          description: Notification marked as read. No response body.
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Notification not found or belongs to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Notification not found
+
+  /dashboard/stats:
+    get:
+      summary: Get dashboard statistics for the authenticated user
+      operationId: getDashboardStats
+      tags: [Dashboard]
+      description: |
+        Returns summary statistics for the authenticated user. Fetched in a single DB transaction.
+
+        Response shape is discriminated by caller role:
+        - **Student**: `totalSessions`, `sessionsJoined`, `pendingPayments`
+        - **Teacher**: `totalSessions`, `totalStudents`
+        - **Admin**: `totalSessions`, `totalStudents`, `totalTeachers`
+        - **Coach**: 403
+
+        `totalSessions` counts non-cancelled sessions only. `totalStudents` / `totalTeachers` count active users only (`isActive=true`).
+      responses:
+        '200':
+          description: Dashboard statistics for the caller's role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStatsResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is coach
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden

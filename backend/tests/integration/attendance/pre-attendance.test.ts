@@ -5,6 +5,8 @@ import { prisma, resetDb } from '../../helpers/db';
 import { createSessionRecord, futureSessionInMinutes } from '../../helpers/sessions';
 import { createPreAttendance } from '../../helpers/attendance';
 
+const drainEvents = () => new Promise<void>((resolve) => setTimeout(resolve, 100));
+
 const URL = (sessionId: string) => `/api/sessions/${sessionId}/pre-attendance`;
 const UNKNOWN_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -165,6 +167,57 @@ describe('POST /api/sessions/:id/pre-attendance', () => {
         where: { sessionId: session.id, studentId: user.id },
       });
       expect(rows).toHaveLength(1);
+    });
+  });
+
+  describe('notifications — pre_attendance_set emission', () => {
+    it('confirmed=true (first time) → all active teachers + admins notified, student excluded', async () => {
+      const teacher = await createUser('teacher');
+      const admin = await createUser('admin');
+      await createUser('teacher', { isActive: false });
+      const session = await futureSessionInMinutes(teacher.id, 60);
+      const { agent, user: student } = await loginAs('student');
+
+      await agent.post(URL(session.id)).send({ confirmed: true });
+      await drainEvents();
+
+      const notifications = await prisma.notification.findMany({
+        where: { type: 'pre_attendance_set' },
+      });
+      const userIds = notifications.map((n) => n.userId);
+      expect(userIds).toContain(teacher.id);
+      expect(userIds).toContain(admin.id);
+      expect(userIds).not.toContain(student.id);
+    });
+
+    it('confirmed=true second time → no new notification (isNew guard)', async () => {
+      const teacher = await createUser('teacher');
+      const session = await futureSessionInMinutes(teacher.id, 60);
+      const { agent } = await loginAs('student');
+
+      await agent.post(URL(session.id)).send({ confirmed: true });
+      await drainEvents();
+      const countAfterFirst = await prisma.notification.count({ where: { type: 'pre_attendance_set' } });
+
+      await agent.post(URL(session.id)).send({ confirmed: true });
+      await drainEvents();
+      const countAfterSecond = await prisma.notification.count({ where: { type: 'pre_attendance_set' } });
+
+      expect(countAfterSecond).toBe(countAfterFirst);
+    });
+
+    it('confirmed=false → no pre_attendance_set notification emitted', async () => {
+      const teacher = await createUser('teacher');
+      await createUser('admin');
+      const session = await futureSessionInMinutes(teacher.id, 60);
+      const { agent, user } = await loginAs('student');
+      await createPreAttendance(session.id, user.id);
+
+      await agent.post(URL(session.id)).send({ confirmed: false });
+      await drainEvents();
+
+      const count = await prisma.notification.count({ where: { type: 'pre_attendance_set' } });
+      expect(count).toBe(0);
     });
   });
 });

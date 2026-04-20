@@ -54,7 +54,7 @@ Role enforcement is **server-side only**. Frontend hides UI elements for conveni
 | Create any role (`POST /users`)                           | ✓     |                |       |         |
 | Create student (`POST /users` role=student)               | ✓     | ✓              |       |         |
 | Update user — name/phone/isActive/role (`PATCH /users/:id`) | ✓   |                |       |         |
-| Deactivate student (`PATCH /users/:id` isActive=false)    | ✓     | ✓ (student only)|      |         |
+| Update student — name/phone/isActive (`PATCH /users/:id`) | ✓     | ✓ (student only)|      |         |
 | Update own name/phone (`PATCH /users/:id` self)           | ✓     | ✓              | ✓     | ✓       |
 | Reset any user's password (`POST /users/:id/password`)    | ✓     |                |       |         |
 | **Sessions**                                              |       |                |       |         |

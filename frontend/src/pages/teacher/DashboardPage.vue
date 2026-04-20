@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useSessionStore } from '@/stores/sessionStore'
+import { useDashboardStore } from '@/stores/dashboardStore'
 import { toDateString } from '@/utils/format'
+import type { TeacherStats } from '@/api/dashboard'
+import StatCard from '@/components/StatCard.vue'
+import NotificationsCard from '@/components/NotificationsCard.vue'
 
 const auth = useAuthStore()
 const sessionStore = useSessionStore()
+const dashboardStore = useDashboardStore()
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -15,13 +20,34 @@ const todaysSessions = computed(() =>
   ),
 )
 
-onMounted(() => sessionStore.fetchSessions({ from: today, to: today }))
+const stats = computed(() => dashboardStore.stats as TeacherStats | null)
+
+onMounted(() => {
+  sessionStore.fetchSessions({ from: today, to: today })
+  dashboardStore.fetchStats()
+})
 </script>
 
 <template>
   <div class="max-w-2xl mx-auto">
     <h1 class="text-lg font-semibold text-gray-900 mb-1">Teacher Dashboard</h1>
-    <p class="text-sm text-gray-500 mb-6">Welcome, {{ auth.user?.name }}.</p>
+    <p class="text-sm text-gray-500 mb-4">Welcome, {{ auth.user?.name }}.</p>
+
+    <!-- Overview stats -->
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <StatCard
+        label="Sessions"
+        :value="stats?.totalSessions ?? null"
+        icon-name="calendar"
+        variant="indigo"
+      />
+      <StatCard
+        label="Students"
+        :value="stats?.totalStudents ?? null"
+        icon-name="users"
+        variant="green"
+      />
+    </div>
 
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <!-- Today's attendance quick-links -->
@@ -58,6 +84,10 @@ onMounted(() => sessionStore.fetchSessions({ from: today, to: today }))
         <span class="font-medium text-gray-900 text-sm">Payment Review</span>
         <span class="text-xs text-gray-500">Approve or reject student payment receipts</span>
       </RouterLink>
+    </div>
+
+    <div class="mt-4">
+      <NotificationsCard />
     </div>
   </div>
 </template>

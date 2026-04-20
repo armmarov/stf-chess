@@ -5,6 +5,7 @@ import { useSessionStore } from '@/stores/sessionStore'
 import { useAuthStore } from '@/stores/authStore'
 import { toHHMM, formatDate } from '@/utils/format'
 import AppButton from '@/components/AppButton.vue'
+import AppIcon from '@/components/AppIcon.vue'
 
 const sessionStore = useSessionStore()
 const auth = useAuthStore()
@@ -34,9 +35,13 @@ onMounted(load)
 <template>
   <div class="max-w-2xl mx-auto">
     <div class="flex items-center justify-between mb-4">
-      <h1 class="text-lg font-semibold text-gray-900">Sessions</h1>
+      <h1 class="text-lg font-semibold text-gray-900 flex items-center gap-1.5">
+        <AppIcon name="calendar" class="h-5 w-5 text-indigo-600" />
+        Sessions
+      </h1>
       <AppButton v-if="canManage" @click="router.push('/sessions/new')">
-        + New Session
+        <AppIcon name="plus" class="h-4 w-4" />
+        New Session
       </AppButton>
     </div>
 
@@ -58,11 +63,13 @@ onMounted(load)
           class="block w-full rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
         />
       </div>
-      <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-        <input v-model="showCancelled" type="checkbox" class="rounded border-gray-300 text-indigo-600" />
-        Show cancelled
-      </label>
-      <AppButton variant="secondary" @click="load">Filter</AppButton>
+      <div class="flex items-end gap-3">
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer h-[38px]">
+          <input v-model="showCancelled" type="checkbox" class="rounded border-gray-300 text-indigo-600" />
+          Show cancelled
+        </label>
+        <AppButton variant="secondary" @click="load">Filter</AppButton>
+      </div>
     </div>
 
     <!-- Loading -->

@@ -24,5 +24,10 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
-  return { fee, loading, fetchFee, updateFee }
+  function $reset() {
+    fee.value = null
+    loading.value = false
+  }
+
+  return { fee, loading, fetchFee, updateFee, $reset }
 })

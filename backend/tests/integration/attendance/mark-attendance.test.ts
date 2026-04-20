@@ -4,6 +4,8 @@ import { createUser, loginAs } from '../../helpers/auth';
 import { prisma, resetDb } from '../../helpers/db';
 import { createSessionRecord } from '../../helpers/sessions';
 
+const drainEvents = () => new Promise<void>((resolve) => setTimeout(resolve, 100));
+
 const URL = (sessionId: string) => `/api/sessions/${sessionId}/attendance`;
 const UNKNOWN_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -256,6 +258,65 @@ describe('PUT /api/sessions/:id/attendance', () => {
       });
       expect(row!.present).toBe(true);
       expect(row!.paidCash).toBe(true);
+    });
+  });
+
+  describe('notifications — attendance emission', () => {
+    it('present false→true fires attendance_marked_present for the student', async () => {
+      const teacher = await createUser('teacher');
+      const student = await createUser('student');
+      const session = await createSessionRecord(teacher.id);
+      const { agent } = await loginAs('teacher');
+
+      await agent.put(URL(session.id)).send({
+        entries: [{ studentId: student.id, present: true, paidCash: false }],
+      });
+      await drainEvents();
+
+      const notifications = await prisma.notification.findMany({
+        where: { userId: student.id, type: 'attendance_marked_present' },
+      });
+      expect(notifications).toHaveLength(1);
+    });
+
+    it('re-marking present=true (no transition) does not emit a second notification', async () => {
+      const teacher = await createUser('teacher');
+      const student = await createUser('student');
+      const session = await createSessionRecord(teacher.id);
+      const { agent } = await loginAs('teacher');
+      const payload = { entries: [{ studentId: student.id, present: true, paidCash: false }] };
+
+      await agent.put(URL(session.id)).send(payload);
+      await drainEvents();
+      await agent.put(URL(session.id)).send(payload);
+      await drainEvents();
+
+      const notifications = await prisma.notification.findMany({
+        where: { userId: student.id, type: 'attendance_marked_present' },
+      });
+      expect(notifications).toHaveLength(1);
+    });
+
+    it('paidCash false→true fires paid_cash for the student', async () => {
+      const teacher = await createUser('teacher');
+      const student = await createUser('student');
+      const session = await createSessionRecord(teacher.id);
+      const { agent } = await loginAs('teacher');
+
+      await agent.put(URL(session.id)).send({
+        entries: [{ studentId: student.id, present: true, paidCash: false }],
+      });
+      await drainEvents();
+
+      await agent.put(URL(session.id)).send({
+        entries: [{ studentId: student.id, present: true, paidCash: true }],
+      });
+      await drainEvents();
+
+      const notifications = await prisma.notification.findMany({
+        where: { userId: student.id, type: 'paid_cash' },
+      });
+      expect(notifications).toHaveLength(1);
     });
   });
 });

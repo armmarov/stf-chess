@@ -21,6 +21,7 @@ export interface RosterEntry {
   preAttended: boolean
   present: boolean
   paidCash: boolean
+  onlinePaymentStatus: 'pending' | 'approved' | 'rejected' | null
 }
 
 export interface RosterSession {

@@ -6,6 +6,7 @@ import { useSessionStore } from '@/stores/sessionStore'
 import { toHHMM, toDateString } from '@/utils/format'
 import AppButton from '@/components/AppButton.vue'
 import AppInput from '@/components/AppInput.vue'
+import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -104,7 +105,8 @@ async function handleSubmit() {
   <div class="max-w-lg mx-auto">
     <div class="flex items-center gap-3 mb-5">
       <button class="text-indigo-600 text-sm hover:underline" @click="router.back()">← Back</button>
-      <h1 class="text-lg font-semibold text-gray-900">
+      <h1 class="text-lg font-semibold text-gray-900 flex items-center gap-1.5">
+        <AppIcon name="calendar" class="h-5 w-5 text-indigo-600" />
         {{ isEdit ? 'Edit Session' : 'New Session' }}
       </h1>
     </div>

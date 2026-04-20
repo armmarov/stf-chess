@@ -3,10 +3,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePaymentStore } from '@/stores/paymentStore'
 import { useToastStore } from '@/stores/toastStore'
+import { useConfirm } from '@/composables/useConfirm'
 import { getReceiptFullUrl } from '@/api/payments'
 import type { PaymentStatus } from '@/stores/paymentStore'
 import AppButton from '@/components/AppButton.vue'
-import { formatDate } from '@/utils/format'
+import AppIcon from '@/components/AppIcon.vue'
+import { formatDate, toHHMM } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,6 +21,7 @@ const payment = computed(() => paymentStore.current)
 const reviewing = ref(false)
 const note = ref('')
 const reviewError = ref('')
+const { confirm } = useConfirm()
 
 const statusBadge: Record<PaymentStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -45,6 +48,15 @@ const receiptFullUrl = computed(() =>
 )
 
 async function review(decision: 'approve' | 'reject') {
+  if (decision === 'reject') {
+    const ok = await confirm({
+      title: 'Reject payment?',
+      message: 'The student will be notified and can re-upload.',
+      confirmLabel: 'Reject',
+      variant: 'danger',
+    })
+    if (!ok) return
+  }
   reviewing.value = true
   reviewError.value = ''
   try {
@@ -87,40 +99,83 @@ function openInNewTab() {
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="flex items-start justify-between mb-4 gap-3">
           <div>
-            <h1 class="text-lg font-semibold text-gray-900">{{ payment.student.name }}</h1>
-            <p class="text-sm text-gray-500 mt-0.5">@{{ payment.student.username }}</p>
+            <h1 class="text-lg font-semibold text-gray-900 flex items-center gap-1.5">
+              <AppIcon name="user" class="h-4 w-4 text-indigo-500 shrink-0" />
+              {{ payment.student.name }}
+            </h1>
+            <p class="text-sm text-gray-500 mt-0.5 flex items-center gap-1">
+              <AppIcon name="hash" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
+              {{ payment.student.username }}
+            </p>
           </div>
           <span
-            class="inline-block rounded-full text-xs px-2 py-0.5 font-medium capitalize shrink-0"
+            class="inline-flex items-center gap-0.5 rounded-full text-xs px-2 py-0.5 font-medium capitalize shrink-0"
             :class="statusBadge[payment.status]"
           >
+            <AppIcon name="tag" class="h-3 w-3" />
             {{ payment.status }}
           </span>
         </div>
 
         <dl class="flex flex-col gap-3 text-sm border-t border-gray-100 pt-4">
           <div>
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Amount</dt>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="dollar" class="h-3.5 w-3.5" />
+              Amount
+            </dt>
             <dd class="text-gray-900 mt-0.5">RM {{ parseFloat(payment.amount).toFixed(2) }}</dd>
           </div>
-          <div v-if="payment.session">
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Session</dt>
-            <dd class="text-gray-900 mt-0.5">
-              {{ formatDate(payment.session.date) }} — {{ payment.session.place }}
-            </dd>
-          </div>
+          <template v-if="payment.session">
+            <div>
+              <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+                <AppIcon name="calendar" class="h-3.5 w-3.5" />
+                Date
+              </dt>
+              <dd class="text-gray-900 mt-0.5">
+                <RouterLink
+                  :to="`/sessions/${payment.session.id}`"
+                  class="text-indigo-600 hover:underline"
+                >
+                  {{ formatDate(payment.session.date) }}
+                </RouterLink>
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+                <AppIcon name="map-pin" class="h-3.5 w-3.5" />
+                Venue
+              </dt>
+              <dd class="text-gray-900 mt-0.5">{{ payment.session.place }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+                <AppIcon name="clock" class="h-3.5 w-3.5" />
+                Time
+              </dt>
+              <dd class="text-gray-900 mt-0.5">{{ toHHMM(payment.session.startTime) }}</dd>
+            </div>
+          </template>
           <div>
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Uploaded</dt>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="clock" class="h-3.5 w-3.5" />
+              Uploaded
+            </dt>
             <dd class="text-gray-900 mt-0.5">{{ new Date(payment.uploadedAt).toLocaleString() }}</dd>
           </div>
           <div v-if="payment.reviewedAt">
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Reviewed by</dt>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="user-circle" class="h-3.5 w-3.5" />
+              Reviewed by
+            </dt>
             <dd class="text-gray-900 mt-0.5">
               {{ payment.reviewedBy?.name }} · {{ new Date(payment.reviewedAt).toLocaleString() }}
             </dd>
           </div>
           <div v-if="payment.note">
-            <dt class="text-xs text-gray-500 uppercase tracking-wide">Note</dt>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="document" class="h-3.5 w-3.5" />
+              Note
+            </dt>
             <dd class="text-gray-900 mt-0.5 whitespace-pre-line">{{ payment.note }}</dd>
           </div>
         </dl>

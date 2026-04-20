@@ -56,5 +56,11 @@ export const useUserStore = defineStore('users', () => {
     await usersApi.setPassword(id, newPassword)
   }
 
-  return { listCache, current, loading, cacheKey, fetchUsers, fetchUser, createUser, updateUser, setPassword }
+  function $reset() {
+    listCache.value = {}
+    current.value = null
+    loading.value = false
+  }
+
+  return { listCache, current, loading, cacheKey, fetchUsers, fetchUser, createUser, updateUser, setPassword, $reset }
 })

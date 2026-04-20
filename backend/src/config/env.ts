@@ -1,3 +1,4 @@
+import path from 'path';
 import { z } from 'zod';
 import dotenv from 'dotenv';
 
@@ -11,6 +12,7 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().url(),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
+  UPLOADS_DIR: z.string().default(path.resolve(__dirname, '../../uploads')),
 });
 
 const parsed = envSchema.safeParse(process.env);

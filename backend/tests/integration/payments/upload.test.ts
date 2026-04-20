@@ -13,6 +13,8 @@ import {
   OVERSIZED_BUFFER,
 } from '../../helpers/payments';
 
+const drainEvents = () => new Promise<void>((resolve) => setTimeout(resolve, 100));
+
 const URL = '/api/payments';
 const UNKNOWN_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -260,6 +262,30 @@ describe('POST /api/payments', () => {
       // First payment's amount is still 40 (snapshot, not recalculated)
       const p1 = await prisma.payment.findUnique({ where: { id: res1.body.payment.id } });
       expect(Number(p1!.amount)).toBe(40);
+    });
+  });
+
+  describe('notifications — receipt_uploaded emission', () => {
+    it('upload → all active teachers + admins get receipt_uploaded; student excluded', async () => {
+      const teacher = await createUser('teacher');
+      const admin = await createUser('admin');
+      await createUser('teacher', { isActive: false });
+      const session = await createSessionRecord(teacher.id);
+      const { agent, user: student } = await loginAs('student');
+
+      await agent
+        .post(URL)
+        .attach('receipt', JPEG_BUFFER, { filename: 'r.jpg', contentType: 'image/jpeg' })
+        .field('sessionId', session.id);
+      await drainEvents();
+
+      const notifications = await prisma.notification.findMany({
+        where: { type: 'receipt_uploaded' },
+      });
+      const userIds = notifications.map((n) => n.userId);
+      expect(userIds).toContain(teacher.id);
+      expect(userIds).toContain(admin.id);
+      expect(userIds).not.toContain(student.id);
     });
   });
 });

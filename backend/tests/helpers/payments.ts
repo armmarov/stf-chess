@@ -44,17 +44,21 @@ export async function createPaymentRecord(
     status?: 'pending' | 'approved' | 'rejected';
     receiptFilePath?: string;
     reviewedById?: string | null;
+    reviewedAt?: Date;
+    uploadedAt?: Date;
   } = {},
 ) {
+  const status = overrides.status ?? 'pending';
   return prisma.payment.create({
     data: {
       studentId,
       sessionId,
       amount: new Prisma.Decimal((overrides.amount ?? 50).toFixed(2)),
       receiptFilePath: overrides.receiptFilePath ?? 'test-receipt.jpg',
-      status: overrides.status ?? 'pending',
-      uploadedAt: new Date(),
+      status,
+      uploadedAt: overrides.uploadedAt ?? new Date(),
       reviewedById: overrides.reviewedById ?? null,
+      reviewedAt: overrides.reviewedAt ?? (status === 'approved' ? new Date() : null),
     },
   });
 }

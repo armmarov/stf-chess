@@ -69,14 +69,39 @@ export async function getPayment(id: string): Promise<Payment> {
   return data.payment
 }
 
+export interface HistoryEntry {
+  id: string // "online:<paymentId>" | "cash:<sessionId>:<studentId>"
+  method: 'cash' | 'online'
+  sessionId: string
+  sessionDate: string
+  sessionPlace: string
+  amount: string
+  paidAt: string
+  paymentId: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  reviewNote: string | null
+}
+
+export async function listPaymentHistory(): Promise<HistoryEntry[]> {
+  const { data } = await apiClient.get<{ entries: HistoryEntry[] }>('/payments/history')
+  return data.entries
+}
+
+export async function downloadHistoryReceipt(entryId: string): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(
+    `/payments/history/${encodeURIComponent(entryId)}/receipt`,
+    { responseType: 'blob' },
+  )
+  return data
+}
+
 export async function reviewPayment(
   id: string,
   decision: 'approve' | 'reject',
   note?: string,
 ): Promise<Payment> {
-  const { data } = await apiClient.patch<{ payment: Payment }>(`/payments/${id}/review`, {
-    decision,
-    note: note ?? null,
-  })
+  const body: { decision: 'approve' | 'reject'; note?: string } = { decision }
+  if (note) body.note = note
+  const { data } = await apiClient.patch<{ payment: Payment }>(`/payments/${id}/review`, body)
   return data.payment
 }

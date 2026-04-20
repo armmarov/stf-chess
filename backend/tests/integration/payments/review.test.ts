@@ -5,6 +5,8 @@ import { prisma, resetDb } from '../../helpers/db';
 import { createSessionRecord } from '../../helpers/sessions';
 import { createPaymentRecord } from '../../helpers/payments';
 
+const drainEvents = () => new Promise<void>((resolve) => setTimeout(resolve, 100));
+
 const URL = (id: string) => `/api/payments/${id}/review`;
 const UNKNOWN_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -158,6 +160,42 @@ describe('PATCH /api/payments/:id/review', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.payment.status).toBe('approved');
+    });
+  });
+
+  describe('notifications — payment_reviewed emission', () => {
+    it('approve → student gets payment_reviewed notification with "approved" in title', async () => {
+      const teacher = await createUser('teacher');
+      const session = await createSessionRecord(teacher.id);
+      const student = await createUser('student');
+      const payment = await createPaymentRecord(student.id, session.id);
+      const { agent } = await loginAs('admin');
+
+      await agent.patch(URL(payment.id)).send({ decision: 'approve' });
+      await drainEvents();
+
+      const notifications = await prisma.notification.findMany({
+        where: { userId: student.id, type: 'payment_reviewed' },
+      });
+      expect(notifications).toHaveLength(1);
+      expect(notifications[0].title).toMatch(/approved/i);
+    });
+
+    it('reject → student gets payment_reviewed notification with "rejected" in title', async () => {
+      const teacher = await createUser('teacher');
+      const session = await createSessionRecord(teacher.id);
+      const student = await createUser('student');
+      const payment = await createPaymentRecord(student.id, session.id);
+      const { agent } = await loginAs('admin');
+
+      await agent.patch(URL(payment.id)).send({ decision: 'reject' });
+      await drainEvents();
+
+      const notifications = await prisma.notification.findMany({
+        where: { userId: student.id, type: 'payment_reviewed' },
+      });
+      expect(notifications).toHaveLength(1);
+      expect(notifications[0].title).toMatch(/rejected/i);
     });
   });
 });
