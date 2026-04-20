@@ -26,9 +26,13 @@ function toImagePath(file: Express.Multer.File): string {
   return path.relative(UPLOADS_DIR, file.path);
 }
 
-function computeIsActive(poll: { startDate: Date; endDate: Date }): boolean {
+type PollStatus = 'upcoming' | 'active' | 'expired';
+
+function computeStatus(poll: { startDate: Date; endDate: Date }): PollStatus {
   const now = new Date();
-  return now >= poll.startDate && now <= poll.endDate;
+  if (now < poll.startDate) return 'upcoming';
+  if (now > poll.endDate) return 'expired';
+  return 'active';
 }
 
 const OPTION_SELECT = {
@@ -86,7 +90,7 @@ async function buildPollDetail(id: string, userId: string, role = 'student') {
     description: poll.description,
     startDate: poll.startDate,
     endDate: poll.endDate,
-    isActive: computeIsActive(poll),
+    status: computeStatus(poll),
     myVoted: !!myVote,
     myOptionId: myVote?.optionId ?? null,
     createdBy: poll.createdBy,
@@ -114,7 +118,7 @@ export async function listPolls(userId: string) {
 
   return polls.map(({ votes, ...rest }) => ({
     ...rest,
-    isActive: computeIsActive(rest),
+    status: computeStatus(rest),
     myVoted: votes.length > 0,
   }));
 }

@@ -49,7 +49,7 @@ const showVoting = computed(() =>
 const statusBadge = computed(() => {
   switch (poll.value?.status) {
     case 'active': return { label: 'Active', cls: 'bg-green-100 text-green-700' }
-    case 'not_started': return { label: 'Not started', cls: 'bg-blue-100 text-blue-700' }
+    case 'upcoming': return { label: 'Upcoming', cls: 'bg-blue-100 text-blue-700' }
     case 'expired': return { label: 'Expired', cls: 'bg-gray-100 text-gray-500' }
     default: return null
   }

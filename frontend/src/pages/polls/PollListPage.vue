@@ -12,17 +12,17 @@ const auth = useAuthStore()
 const router = useRouter()
 
 const isAdmin = computed(() => auth.user?.role === 'admin')
-const activeTab = ref<'active' | 'expired'>('active')
+const activeTab = ref<'active' | 'upcoming' | 'expired'>('active')
 
-const activePolls = computed(() =>
-  pollStore.list.filter((p) => p.status === 'active' || p.status === 'not_started'),
-)
-const expiredPolls = computed(() =>
-  pollStore.list.filter((p) => p.status === 'expired'),
-)
-const displayList = computed(() =>
-  activeTab.value === 'active' ? activePolls.value : expiredPolls.value,
-)
+const activePolls = computed(() => pollStore.list.filter((p) => p.status === 'active'))
+const upcomingPolls = computed(() => pollStore.list.filter((p) => p.status === 'upcoming'))
+const expiredPolls = computed(() => pollStore.list.filter((p) => p.status === 'expired'))
+
+const displayList = computed(() => {
+  if (activeTab.value === 'active') return activePolls.value
+  if (activeTab.value === 'upcoming') return upcomingPolls.value
+  return expiredPolls.value
+})
 
 onMounted(() => pollStore.fetchList())
 </script>
@@ -59,6 +59,16 @@ onMounted(() => pollStore.fetchList())
         </button>
         <button
           role="tab"
+          :aria-selected="activeTab === 'upcoming'"
+          class="flex-1 text-sm font-medium py-2 -mb-px border-b-2 transition-colors"
+          :class="activeTab === 'upcoming' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+          @click="activeTab = 'upcoming'"
+        >
+          Upcoming
+          <span class="ml-1 text-xs text-gray-400">({{ upcomingPolls.length }})</span>
+        </button>
+        <button
+          role="tab"
           :aria-selected="activeTab === 'expired'"
           class="flex-1 text-sm font-medium py-2 -mb-px border-b-2 transition-colors"
           :class="activeTab === 'expired' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
@@ -70,7 +80,7 @@ onMounted(() => pollStore.fetchList())
       </div>
 
       <div v-if="displayList.length === 0" class="text-center py-10 text-gray-400 text-sm">
-        No {{ activeTab === 'active' ? 'active' : 'expired' }} polls.
+        No {{ activeTab }} polls.
       </div>
 
       <div v-else class="flex flex-col gap-3">

@@ -1,6 +1,6 @@
 import apiClient from './client'
 
-export type PollStatus = 'active' | 'not_started' | 'expired'
+export type PollStatus = 'upcoming' | 'active' | 'expired'
 
 export interface PollVoter {
   id: string
