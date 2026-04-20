@@ -14,6 +14,7 @@ const links: NavLink[] = [
   { label: 'Payments', to: '/payments/review', icon: 'dollar' },
   { label: 'Fee', to: '/admin/config/fee', icon: 'settings' },
   { label: 'Profile', to: '/profile', icon: 'user-circle' },
+  { label: 'About', to: '/about', icon: 'info' },
 ]
 
 async function handleLogout() {

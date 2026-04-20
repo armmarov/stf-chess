@@ -95,6 +95,7 @@ onMounted(load)
       >
         <div class="flex items-start justify-between gap-2">
           <div>
+            <code class="text-[11px] text-gray-400 font-mono block mb-1">{{ sessionSerial(session.id, session.date) }}</code>
             <p class="font-medium text-gray-900 text-sm flex items-center gap-1.5">
               <AppIcon name="calendar" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
               {{ formatDate(session.date) }}
@@ -109,13 +110,8 @@ onMounted(load)
                 <span class="truncate">{{ session.place }}</span>
               </span>
             </p>
-            <p v-if="session.notes" class="text-xs text-gray-400 mt-1 flex items-start gap-1.5">
-              <AppIcon name="document" class="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
-              <span class="whitespace-pre-wrap break-words">{{ session.notes }}</span>
-            </p>
-            <p class="flex items-center gap-1.5 mt-0.5 leading-none">
-              <AppIcon name="hash" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
-              <code class="text-[11px] text-gray-400 font-mono leading-none">{{ sessionSerial(session.id, session.date) }}</code>
+            <p v-if="session.notes" class="text-xs text-gray-400 mt-1 whitespace-pre-wrap break-words">
+              {{ session.notes }}
             </p>
           </div>
           <div class="flex flex-col items-end gap-1 shrink-0">

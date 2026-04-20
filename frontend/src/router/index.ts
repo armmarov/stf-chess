@@ -197,6 +197,17 @@ const router = createRouter({
       ],
     },
     {
+      path: '/about',
+      component: () => import('@/layouts/AppLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'about',
+          component: () => import('@/pages/AboutPage.vue'),
+        },
+      ],
+    },
+    {
       path: '/',
       redirect: '/login',
     },

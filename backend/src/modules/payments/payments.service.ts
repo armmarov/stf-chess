@@ -83,6 +83,8 @@ export async function listPayments(query: ListPaymentsQuery, requesterId: string
 
   if (requesterRole === 'student') {
     where.studentId = requesterId;
+    if (query.sessionId) where.sessionId = query.sessionId;
+    if (query.status) where.status = query.status;
   } else {
     if (query.status) where.status = query.status;
     if (query.studentId) where.studentId = query.studentId;

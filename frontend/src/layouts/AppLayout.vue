@@ -41,6 +41,7 @@ const links = computed<NavLink[]>(() => {
   }
 
   base.push({ label: 'Profile', to: '/profile', icon: 'user-circle' })
+  base.push({ label: 'About', to: '/about', icon: 'info' })
 
   return base
 })
