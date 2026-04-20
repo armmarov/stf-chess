@@ -11,6 +11,7 @@ const links: NavLink[] = [
   { label: 'Dashboard', to: '/admin', exact: true, icon: 'home' },
   { label: 'Sessions', to: '/sessions', icon: 'calendar' },
   { label: 'Tournaments', to: '/tournaments', icon: 'trophy' },
+  { label: 'Polls', to: '/polls', icon: 'clipboard' },
   { label: 'Users', to: '/admin/users', icon: 'users' },
   { label: 'Payments', to: '/payments/review', icon: 'dollar' },
   { label: 'Fee', to: '/admin/config/fee', icon: 'settings' },

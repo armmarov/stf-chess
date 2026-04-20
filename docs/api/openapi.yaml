@@ -820,6 +820,147 @@ components:
           type: integer
           description: Updated total interest count for the tournament.
 
+    PollSummary:
+      type: object
+      required: [id, title, startDate, endDate, isActive, myVoted]
+      description: Poll item returned in the list response.
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 200
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+          description: True if current time is between startDate and endDate (server-computed, not stored).
+        myVoted:
+          type: boolean
+          description: True if the requesting user has cast a vote in this poll.
+
+    PollVoter:
+      type: object
+      required: [id, name]
+      description: A user who voted for a specific option. Only present in option.voters for admin/teacher roles.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        className:
+          $ref: '#/components/schemas/ClassName'
+
+    PollOptionDetail:
+      type: object
+      required: [id, label, order, hasImage, voteCount]
+      description: |
+        A single poll option as returned in a PollDetail response.
+        `imagePath` is never exposed; use `GET /polls/{id}/options/{optionId}/image` to retrieve the image.
+        `voters` is present only when the caller's role is admin or teacher.
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          maxLength: 200
+        order:
+          type: integer
+          description: Display order (0-indexed, ascending).
+        hasImage:
+          type: boolean
+          description: True if this option has an associated image.
+        voteCount:
+          type: integer
+          description: Number of votes cast for this option.
+        voters:
+          type: array
+          items:
+            $ref: '#/components/schemas/PollVoter'
+          description: Present for admin/teacher only. Voters who selected this option, sorted by name asc.
+
+    PollDetail:
+      type: object
+      required: [id, title, startDate, endDate, isActive, myVoted, myOptionId, createdBy, options, totalVotes]
+      description: Full poll detail including options, vote counts, and (for admin/teacher) voter lists per option.
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+          description: True if current time is between startDate and endDate (server-computed).
+        myVoted:
+          type: boolean
+          description: True if the requesting user has cast a vote.
+        myOptionId:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the option the requesting user voted for. Null if not yet voted.
+        createdBy:
+          type: object
+          required: [id, name]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/PollOptionDetail'
+          description: Options ordered by `order` asc.
+        totalVotes:
+          type: integer
+          description: Total number of votes across all options.
+
+    PollListResponse:
+      type: object
+      required: [polls]
+      properties:
+        polls:
+          type: array
+          items:
+            $ref: '#/components/schemas/PollSummary'
+          description: Sorted by endDate descending.
+
+    PollResponse:
+      type: object
+      required: [poll]
+      properties:
+        poll:
+          $ref: '#/components/schemas/PollDetail'
+
+    VoteRequest:
+      type: object
+      required: [optionId]
+      properties:
+        optionId:
+          type: string
+          format: uuid
+          description: ID of the poll option to vote for.
+
     StudentDashboardStats:
       type: object
       required: [totalSessions, sessionsJoined, pendingPayments]
@@ -883,6 +1024,7 @@ components:
         - receipt_uploaded
         - payment_reviewed
         - tournament_added
+        - poll_created
       description: Event that triggered the notification.
 
     Notification:
@@ -2890,3 +3032,387 @@ paths:
                 $ref: '#/components/schemas/Error'
               example:
                 error: Tournament not found
+
+  /polls:
+    get:
+      summary: List polls
+      operationId: listPolls
+      tags: [Polls]
+      description: |
+        Returns all polls ordered by endDate descending. Available to every authenticated role.
+      responses:
+        '200':
+          description: Poll list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollListResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create poll (admin only)
+      operationId: createPoll
+      tags: [Polls]
+      description: |
+        Creates a new poll with 2–10 options. Admin only.
+
+        Request must be `multipart/form-data`. The `options` field must be a JSON-encoded string containing an array of `{ label }` objects.
+        Option images are uploaded as `option_0`, `option_1`, … `option_9` — one file per option at the corresponding index. Images are optional per option.
+
+        On success, a `poll_created` notification is sent fire-and-forget to all active users except the creator.
+
+        **File constraints:** JPEG, PNG, WebP; max 5 MB per file.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title, startDate, endDate, options]
+              properties:
+                title:
+                  type: string
+                  maxLength: 200
+                description:
+                  type: string
+                startDate:
+                  type: string
+                  format: date-time
+                  description: ISO 8601 datetime. Must be before endDate.
+                endDate:
+                  type: string
+                  format: date-time
+                  description: ISO 8601 datetime. Must be after startDate.
+                options:
+                  type: string
+                  description: 'JSON-encoded array of { label } objects. Min 2, max 10. Example: [{"label":"Option A"},{"label":"Option B"}]'
+                option_0:
+                  type: string
+                  format: binary
+                  description: Image for option at index 0 (optional).
+                option_1:
+                  type: string
+                  format: binary
+                  description: Image for option at index 1 (optional).
+                option_2:
+                  type: string
+                  format: binary
+                  description: Image for option at index 2 (optional).
+      responses:
+        '201':
+          description: Poll created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollResponse'
+        '400':
+          description: Validation error (invalid fields, options parse failure, endDate ≤ startDate, or invalid file)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_file_type:
+                  value:
+                    error: 'Invalid file type. Allowed: JPEG, PNG, WebP'
+                file_too_large:
+                  value:
+                    error: File exceeds 5 MB limit
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+
+  /polls/{id}:
+    get:
+      summary: Get poll
+      operationId: getPoll
+      tags: [Polls]
+      description: |
+        Returns full poll detail. Available to every authenticated role.
+        Admin and teacher additionally receive `voters` arrays per option.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Poll detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Poll not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Poll not found
+
+    patch:
+      summary: Update poll (admin only)
+      operationId: updatePoll
+      tags: [Polls]
+      description: |
+        Updates poll metadata (title, description, startDate, endDate). Admin only.
+        **Options cannot be edited after creation.**
+        Send `description: null` or `description: ""` to clear the description.
+        If both `startDate` and `endDate` are provided they must satisfy `endDate > startDate`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  maxLength: 200
+                description:
+                  type: string
+                  nullable: true
+                  description: Send null or empty string to clear.
+                startDate:
+                  type: string
+                  format: date-time
+                endDate:
+                  type: string
+                  format: date-time
+                  description: Must be after startDate if both are provided.
+      responses:
+        '200':
+          description: Updated poll
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Poll not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Poll not found
+
+    delete:
+      summary: Delete poll (admin only)
+      operationId: deletePoll
+      tags: [Polls]
+      description: |
+        Hard-deletes the poll, all votes, and all option image files from disk. Admin only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Poll deleted
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Poll not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Poll not found
+
+  /polls/{id}/options/{optionId}/image:
+    get:
+      summary: Download poll option image
+      operationId: downloadPollOptionImage
+      tags: [Polls]
+      description: |
+        Streams the image file for a specific poll option.
+        Available to every authenticated role.
+        Returns `Content-Type` based on file extension (jpeg/png/webp).
+        `Content-Disposition: inline`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: optionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Image file
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Option not found, has no image, or image file missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_found:
+                  value:
+                    error: Option not found
+                no_image:
+                  value:
+                    error: No image for this option
+                file_missing:
+                  value:
+                    error: Image file not found
+
+  /polls/{id}/vote:
+    post:
+      summary: Cast vote
+      operationId: castVote
+      tags: [Polls]
+      description: |
+        Submits the authenticated user's vote for a specific poll option. Available to every authenticated role.
+        **Votes are immutable** — a user may vote exactly once per poll (unique constraint `[pollId, userId]`).
+        Returns full poll detail (with updated vote counts) with HTTP 201.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteRequest'
+      responses:
+        '201':
+          description: Vote recorded; returns updated poll detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollResponse'
+        '400':
+          description: Option does not belong to this poll
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Invalid option for this poll
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Poll not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Poll not found
+        '409':
+          description: Vote rejected — poll not yet started, already ended, or user already voted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_started:
+                  value:
+                    error: Poll has not started
+                ended:
+                  value:
+                    error: Poll has ended
+                already_voted:
+                  value:
+                    error: You have already voted

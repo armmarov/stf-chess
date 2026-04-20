@@ -43,6 +43,8 @@ model User {
   notifications       Notification[]
   tournamentsCreated  Tournament[]          @relation("TournamentCreatedBy")
   tournamentInterests TournamentInterest[]  @relation("TournamentInterest")
+  pollsCreated        Poll[]                @relation("PollCreatedBy")
+  votes               Vote[]                @relation("UserVotes")
 
   @@map("users")
 }
@@ -141,6 +143,7 @@ enum NotificationType {
   receipt_uploaded
   payment_reviewed
   tournament_added
+  poll_created
 }
 
 model Notification {
@@ -192,4 +195,52 @@ model TournamentInterest {
 
   @@unique([tournamentId, studentId])
   @@map("tournament_interests")
+}
+
+model Poll {
+  id          String   @id @default(uuid())
+  title       String   @db.VarChar(200)
+  description String?
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  createdBy User         @relation("PollCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  options   PollOption[]
+  votes     Vote[]
+
+  @@index([endDate])
+  @@map("polls")
+}
+
+model PollOption {
+  id        String  @id @default(uuid())
+  pollId    String  @map("poll_id")
+  label     String  @db.VarChar(200)
+  imagePath String? @map("image_path")
+  order     Int     @default(0)
+
+  poll  Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes Vote[]
+
+  @@index([pollId])
+  @@map("poll_options")
+}
+
+model Vote {
+  id        String   @id @default(uuid())
+  pollId    String   @map("poll_id")
+  optionId  String   @map("option_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user   User       @relation("UserVotes", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@index([optionId])
+  @@map("votes")
 }

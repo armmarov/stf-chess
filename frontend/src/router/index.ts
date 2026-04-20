@@ -76,6 +76,16 @@ const router = createRouter({
           name: 'admin-tournament-edit',
           component: () => import('@/pages/admin/tournaments/TournamentFormPage.vue'),
         },
+        {
+          path: 'polls/new',
+          name: 'admin-poll-new',
+          component: () => import('@/pages/admin/polls/PollFormPage.vue'),
+        },
+        {
+          path: 'polls/:id/edit',
+          name: 'admin-poll-edit',
+          component: () => import('@/pages/admin/polls/PollFormPage.vue'),
+        },
       ],
     },
     {
@@ -197,6 +207,22 @@ const router = createRouter({
           path: ':id',
           name: 'tournament-detail',
           component: () => import('@/pages/tournaments/TournamentDetailPage.vue'),
+        },
+      ],
+    },
+    {
+      path: '/polls',
+      component: () => import('@/layouts/AppLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'poll-list',
+          component: () => import('@/pages/polls/PollListPage.vue'),
+        },
+        {
+          path: ':id',
+          name: 'poll-detail',
+          component: () => import('@/pages/polls/PollDetailPage.vue'),
         },
       ],
     },
