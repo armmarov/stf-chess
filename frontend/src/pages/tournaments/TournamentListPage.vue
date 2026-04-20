@@ -68,15 +68,19 @@ onMounted(() => tournamentStore.fetchList())
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0">
               <p class="font-semibold text-gray-900 text-sm">{{ t.name }}</p>
-              <span class="inline-flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5 mt-1.5 font-medium">
-                <AppIcon name="calendar" class="h-3 w-3 shrink-0" />
-                {{ formatDate(t.startDate) }}
-                <template v-if="t.place">
-                  <span class="text-indigo-300">·</span>
-                  <AppIcon name="map-pin" class="h-3 w-3 shrink-0" />
+              <div class="flex flex-col items-start gap-1 mt-1.5">
+                <span class="inline-flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5 font-medium">
+                  <AppIcon name="calendar" class="h-3 w-3 shrink-0" />
+                  {{ formatDate(t.startDate) }}
+                </span>
+                <span
+                  v-if="t.place"
+                  class="inline-flex items-center gap-1.5 text-xs text-gray-600 max-w-full"
+                >
+                  <AppIcon name="map-pin" class="h-3 w-3 shrink-0 text-gray-400" />
                   <span class="truncate">{{ t.place }}</span>
-                </template>
-              </span>
+                </span>
+              </div>
               <p v-if="t.description" class="text-sm text-gray-500 mt-1.5 line-clamp-2">{{ t.description }}</p>
             </div>
             <span class="text-gray-400 text-sm shrink-0 mt-0.5">→</span>
