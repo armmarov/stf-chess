@@ -11,6 +11,7 @@ export const createTournamentSchema = z.object({
   ),
   startDate: dateString.optional(),
   endDate: dateString.optional(),
+  place: z.string().min(1).max(200).optional(),
 });
 
 export const updateTournamentSchema = z.object({
@@ -29,6 +30,10 @@ export const updateTournamentSchema = z.object({
     dateString.nullable().optional(),
   ),
   removeImage: z.string().optional(),
+  place: z.preprocess(
+    (v) => (v === '' ? null : v),
+    z.string().min(1).max(200).nullable().optional(),
+  ),
 });
 
 export const interestSchema = z.object({

@@ -74,6 +74,20 @@ describe('createTournamentSchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('valid place passes', () => {
+    expect(createTournamentSchema.safeParse({ ...valid, place: 'City Hall' }).success).toBe(true);
+  });
+
+  it('empty string place → error (min 1)', () => {
+    expect(createTournamentSchema.safeParse({ ...valid, place: '' }).success).toBe(false);
+  });
+
+  it('place over 200 chars → error', () => {
+    expect(
+      createTournamentSchema.safeParse({ ...valid, place: 'a'.repeat(201) }).success,
+    ).toBe(false);
+  });
 });
 
 describe('updateTournamentSchema', () => {
@@ -123,6 +137,16 @@ describe('updateTournamentSchema', () => {
 
   it('removeImage string value is valid', () => {
     expect(updateTournamentSchema.safeParse({ removeImage: 'true' }).success).toBe(true);
+  });
+
+  it('valid place passes', () => {
+    expect(updateTournamentSchema.safeParse({ place: 'Sports Complex' }).success).toBe(true);
+  });
+
+  it('empty string place → null (preprocessed)', () => {
+    const result = updateTournamentSchema.safeParse({ place: '' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.place).toBeNull();
   });
 });
 

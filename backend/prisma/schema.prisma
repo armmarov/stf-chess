@@ -166,6 +166,7 @@ model Tournament {
   name             String    @db.VarChar(200)
   description      String
   imagePath        String?   @map("image_path")
+  place            String?   @db.VarChar(200)
   registrationLink String?   @map("registration_link")
   startDate        DateTime? @map("start_date") @db.Date
   endDate          DateTime? @map("end_date") @db.Date

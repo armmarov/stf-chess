@@ -18,6 +18,7 @@ Tournament {
   id               uuid (PK)
   name             varchar(200)
   description      text
+  place            string?       -- venue / location
   imagePath        string?       -- relative path under UPLOADS_DIR (e.g. "tournaments/uuid.jpg")
   registrationLink string?       -- external URL
   startDate        DateTime?

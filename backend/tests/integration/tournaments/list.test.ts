@@ -116,6 +116,28 @@ describe('GET /api/tournaments', () => {
     });
   });
 
+  describe('place field in list response', () => {
+    it('place is present in list items', async () => {
+      const admin = await createUser('admin');
+      await createTournamentRecord(admin.id, { place: 'Main Arena' });
+      const { agent } = await loginAs('teacher');
+
+      const res = await agent.get(URL);
+      expect(res.status).toBe(200);
+      expect(res.body.tournaments[0].place).toBe('Main Arena');
+    });
+
+    it('place is null in list items when not set', async () => {
+      const admin = await createUser('admin');
+      await createTournamentRecord(admin.id, { place: null });
+      const { agent } = await loginAs('teacher');
+
+      const res = await agent.get(URL);
+      expect(res.status).toBe(200);
+      expect(res.body.tournaments[0].place).toBeNull();
+    });
+  });
+
   describe('ordering — startDate desc nulls last', () => {
     it('tournaments ordered by startDate desc nulls last, then createdAt desc', async () => {
       const admin = await createUser('admin');

@@ -163,6 +163,26 @@ describe('GET /api/tournaments/:id', () => {
       expect(ids).toContain(student.id);
     });
 
+    it('place is included in detail response', async () => {
+      const admin = await createUser('admin');
+      const tournament = await createTournamentRecord(admin.id, { place: 'City Hall' });
+      const { agent } = await loginAs('teacher');
+
+      const res = await agent.get(URL(tournament.id));
+      expect(res.status).toBe(200);
+      expect(res.body.tournament.place).toBe('City Hall');
+    });
+
+    it('place is null when not set', async () => {
+      const admin = await createUser('admin');
+      const tournament = await createTournamentRecord(admin.id, { place: null });
+      const { agent } = await loginAs('teacher');
+
+      const res = await agent.get(URL(tournament.id));
+      expect(res.status).toBe(200);
+      expect(res.body.tournament.place).toBeNull();
+    });
+
     it('empty interestedStudents array when no interests', async () => {
       const admin = await createUser('admin');
       const tournament = await createTournamentRecord(admin.id);

@@ -31,6 +31,7 @@ export async function createTournamentRecord(
     registrationLink?: string | null;
     startDate?: Date | null;
     endDate?: Date | null;
+    place?: string | null;
   } = {},
 ) {
   return prisma.tournament.create({
@@ -41,6 +42,7 @@ export async function createTournamentRecord(
       registrationLink: overrides.registrationLink !== undefined ? overrides.registrationLink : null,
       startDate: overrides.startDate !== undefined ? overrides.startDate : null,
       endDate: overrides.endDate !== undefined ? overrides.endDate : null,
+      place: overrides.place !== undefined ? overrides.place : null,
       createdById,
     },
   });

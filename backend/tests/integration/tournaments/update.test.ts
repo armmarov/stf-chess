@@ -154,6 +154,26 @@ describe('PATCH /api/tournaments/:id', () => {
       expect(tournamentFileExists(oldImagePath)).toBe(false);
     });
 
+    it('admin sets place → 200, place returned', async () => {
+      const { agent, user: admin } = await loginAs('admin');
+      const tournament = await createTournamentRecord(admin.id);
+
+      const res = await agent.patch(URL(tournament.id)).field('place', 'Sports Complex');
+
+      expect(res.status).toBe(200);
+      expect(res.body.tournament.place).toBe('Sports Complex');
+    });
+
+    it('admin clears place with empty string → null', async () => {
+      const { agent, user: admin } = await loginAs('admin');
+      const tournament = await createTournamentRecord(admin.id, { place: 'Old Venue' });
+
+      const res = await agent.patch(URL(tournament.id)).field('place', '');
+
+      expect(res.status).toBe(200);
+      expect(res.body.tournament.place).toBeNull();
+    });
+
     it('admin patches with no image field when no existing image → no error', async () => {
       const { agent, user: admin } = await loginAs('admin');
       const tournament = await createTournamentRecord(admin.id, { imagePath: null });

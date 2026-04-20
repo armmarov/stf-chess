@@ -734,7 +734,7 @@ components:
 
     TournamentSummary:
       type: object
-      required: [id, name, description, imagePath, registrationLink, startDate, endDate, createdAt, updatedAt, interestCount]
+      required: [id, name, description, place, imagePath, registrationLink, startDate, endDate, createdAt, updatedAt, interestCount]
       description: |
         Tournament shape returned in the list response.
         `imagePath` is the internal relative path stored in the DB (e.g. `tournaments/<uuid>.jpg`).
@@ -749,6 +749,10 @@ components:
           maxLength: 200
         description:
           type: string
+        place:
+          type: string
+          nullable: true
+          description: "Venue or location for the tournament. Null if unspecified."
         imagePath:
           type: string
           nullable: true
@@ -2551,6 +2555,11 @@ paths:
                 description:
                   type: string
                   minLength: 1
+                place:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: Venue or location. Optional.
                 registrationLink:
                   type: string
                   format: uri
@@ -2668,6 +2677,9 @@ paths:
                 description:
                   type: string
                   minLength: 1
+                place:
+                  type: string
+                  description: "Venue or location. Empty string to clear → null."
                 registrationLink:
                   type: string
                   description: "URL or empty string to clear."

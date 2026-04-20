@@ -112,6 +112,14 @@ onMounted(() => tournamentStore.fetchTournament(id))
             </dd>
           </div>
 
+          <div v-if="tournament.place">
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="map-pin" class="h-3.5 w-3.5" />
+              Venue
+            </dt>
+            <dd class="text-gray-900 mt-0.5">{{ tournament.place }}</dd>
+          </div>
+
           <div v-if="tournament.description">
             <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
               <AppIcon name="document" class="h-3.5 w-3.5" />

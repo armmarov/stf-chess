@@ -21,6 +21,7 @@ const name = ref('')
 const description = ref('')
 const startDate = ref('')
 const endDate = ref('')
+const place = ref('')
 const registrationLink = ref('')
 const imageFile = ref<File | null>(null)
 const imagePreviewUrl = ref('')
@@ -48,6 +49,7 @@ onMounted(async () => {
       description.value = tournament.value.description ?? ''
       startDate.value = tournament.value.startDate.slice(0, 10)
       endDate.value = tournament.value.endDate?.slice(0, 10) ?? ''
+      place.value = tournament.value.place ?? ''
       registrationLink.value = tournament.value.registrationLink ?? ''
     }
   }
@@ -63,6 +65,7 @@ async function handleSubmit() {
         description: description.value.trim() || null,
         startDate: startDate.value,
         endDate: endDate.value || null,
+        place: place.value.trim() || null,
         registrationLink: registrationLink.value.trim() || null,
         image: imageFile.value ?? undefined,
         removeImage: removeImage.value,
@@ -75,6 +78,7 @@ async function handleSubmit() {
         description: description.value.trim() || undefined,
         startDate: startDate.value,
         endDate: endDate.value || undefined,
+        place: place.value.trim() || undefined,
         registrationLink: registrationLink.value.trim() || undefined,
         image: imageFile.value ?? undefined,
       })
@@ -144,6 +148,12 @@ async function handleSubmit() {
           />
         </div>
       </div>
+
+      <AppInput
+        v-model="place"
+        label="Venue / Place (optional)"
+        placeholder="e.g. Dewan Serbaguna, Kuala Lumpur"
+      />
 
       <AppInput
         v-model="registrationLink"

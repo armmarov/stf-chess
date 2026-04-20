@@ -33,9 +33,16 @@ const TOURNAMENT_SELECT = {
   registrationLink: true,
   startDate: true,
   endDate: true,
+  place: true,
   createdAt: true,
   updatedAt: true,
 } as const;
+
+// Strip internal imagePath from API responses and expose a boolean hasImage flag.
+function toPublic<T extends { imagePath: string | null }>(row: T): Omit<T, 'imagePath'> & { hasImage: boolean } {
+  const { imagePath, ...rest } = row;
+  return { ...rest, hasImage: imagePath !== null };
+}
 
 export async function listTournaments(requesterId: string, role: string) {
   const rows = await prisma.tournament.findMany({
@@ -47,7 +54,7 @@ export async function listTournaments(requesterId: string, role: string) {
   });
 
   if (role !== 'student') {
-    return rows.map(({ _count, ...rest }) => ({ ...rest, interestCount: _count.interests }));
+    return rows.map(({ _count, ...rest }) => ({ ...toPublic(rest), interestCount: _count.interests }));
   }
 
   const myInterests = await prisma.tournamentInterest.findMany({
@@ -57,7 +64,7 @@ export async function listTournaments(requesterId: string, role: string) {
   const mySet = new Set(myInterests.map((i) => i.tournamentId));
 
   return rows.map(({ _count, ...rest }) => ({
-    ...rest,
+    ...toPublic(rest),
     interestCount: _count.interests,
     myInterested: mySet.has(rest.id),
   }));
@@ -80,7 +87,7 @@ export async function getTournament(id: string, requesterId: string, role: strin
 
   const { _count, interests, ...rest } = t;
   const interestedStudents = interests.map((i) => i.student);
-  const base = { ...rest, interestCount: _count.interests, interestedStudents };
+  const base = { ...toPublic(rest), interestCount: _count.interests, interestedStudents };
 
   if (role !== 'student') return base;
 
@@ -103,6 +110,7 @@ export async function createTournament(
       registrationLink: data.registrationLink ?? null,
       startDate: data.startDate ? new Date(data.startDate) : null,
       endDate: data.endDate ? new Date(data.endDate) : null,
+      place: data.place ?? null,
       createdById,
       imagePath,
     },
@@ -127,7 +135,8 @@ export async function createTournament(
     )
     .catch((err) => console.error('[notifications] createTournament emission failed:', err));
 
-  return { ...t, interestCount: 0 };
+  const { createdBy, ...rest } = t;
+  return { ...toPublic(rest), createdBy, interestCount: 0 };
 }
 
 export async function updateTournament(
@@ -146,6 +155,7 @@ export async function updateTournament(
     registrationLink?: string | null;
     startDate?: Date | null;
     endDate?: Date | null;
+    place?: string | null;
     imagePath?: string | null;
   } = {};
 
@@ -154,6 +164,7 @@ export async function updateTournament(
   if (data.registrationLink !== undefined) updateData.registrationLink = data.registrationLink;
   if (data.startDate !== undefined) updateData.startDate = data.startDate ? new Date(data.startDate) : null;
   if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
+  if (data.place !== undefined) updateData.place = data.place;
 
   if (removeImage) {
     if (existing.imagePath) tryDeleteFile(path.join(UPLOADS_DIR, existing.imagePath));
@@ -174,8 +185,8 @@ export async function updateTournament(
     },
   });
 
-  const { _count, ...rest } = t;
-  return { ...rest, interestCount: _count.interests };
+  const { _count, createdBy, ...rest } = t;
+  return { ...toPublic(rest), createdBy, interestCount: _count.interests };
 }
 
 export async function deleteTournament(id: string) {

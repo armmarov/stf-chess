@@ -13,6 +13,7 @@ export interface Tournament {
   startDate: string
   endDate: string | null
   registrationLink: string | null
+  place: string | null
   hasImage: boolean
   interestCount: number
   myInterested?: boolean
@@ -28,6 +29,7 @@ export interface CreateTournamentBody {
   description?: string
   startDate: string
   endDate?: string
+  place?: string
   registrationLink?: string
   image?: File
 }
@@ -37,6 +39,7 @@ export interface UpdateTournamentBody {
   description?: string | null
   startDate?: string
   endDate?: string | null
+  place?: string | null
   registrationLink?: string | null
   image?: File
   removeImage?: boolean
@@ -64,6 +67,7 @@ export async function createTournament(body: CreateTournamentBody): Promise<Tour
   if (body.description) form.append('description', body.description)
   form.append('startDate', body.startDate)
   if (body.endDate) form.append('endDate', body.endDate)
+  if (body.place) form.append('place', body.place)
   if (body.registrationLink) form.append('registrationLink', body.registrationLink)
   if (body.image) form.append('image', body.image)
   const { data } = await apiClient.post<{ tournament: Tournament }>('/tournaments', form, {
@@ -78,6 +82,7 @@ export async function updateTournament(id: string, body: UpdateTournamentBody): 
   if (body.description !== undefined) form.append('description', body.description ?? '')
   if (body.startDate !== undefined) form.append('startDate', body.startDate)
   if (body.endDate !== undefined) form.append('endDate', body.endDate ?? '')
+  if (body.place !== undefined) form.append('place', body.place ?? '')
   if (body.registrationLink !== undefined) form.append('registrationLink', body.registrationLink ?? '')
   if (body.image) form.append('image', body.image)
   if (body.removeImage) form.append('removeImage', 'true')

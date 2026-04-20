@@ -75,6 +75,16 @@ describe('POST /api/tournaments', () => {
       expect(res.status).toBe(400);
     });
 
+    it('empty string place → 400 (min 1 char)', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent
+        .post(URL)
+        .field('name', 'Test')
+        .field('description', 'Desc')
+        .field('place', '');
+      expect(res.status).toBe(400);
+    });
+
     it('invalid registrationLink (not a URL) → 400', async () => {
       const { agent } = await loginAs('admin');
       const res = await agent
@@ -188,6 +198,29 @@ describe('POST /api/tournaments', () => {
       expect(res.body.tournament.registrationLink).toBe('https://chess.example.com/register');
       expect(res.body.tournament.startDate).toMatch(/2025-06-01/);
       expect(res.body.tournament.endDate).toMatch(/2025-06-03/);
+    });
+
+    it('admin creates with place → 201, place returned', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent
+        .post(URL)
+        .field('name', 'Place Tournament')
+        .field('description', 'Desc')
+        .field('place', 'City Hall');
+
+      expect(res.status).toBe(201);
+      expect(res.body.tournament.place).toBe('City Hall');
+    });
+
+    it('admin creates without place → place: null', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent
+        .post(URL)
+        .field('name', 'No Place')
+        .field('description', 'Desc');
+
+      expect(res.status).toBe(201);
+      expect(res.body.tournament.place).toBeNull();
     });
 
     it('response includes createdBy', async () => {
