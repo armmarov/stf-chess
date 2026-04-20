@@ -5,6 +5,7 @@ import { useResourceStore } from '@/stores/resourceStore'
 import { useAuthStore } from '@/stores/authStore'
 import { resourceImageUrl } from '@/api/resources'
 import type { ResourceType } from '@/api/resources'
+import type { IconName } from '@/utils/icons'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -29,7 +30,7 @@ const TYPE_COLORS: Record<ResourceType, string> = {
   app: 'bg-emerald-100 text-emerald-700',
 }
 
-const TYPE_ICONS: Record<ResourceType, string> = {
+const TYPE_ICONS: Record<ResourceType, IconName> = {
   book: 'book',
   homework: 'document',
   app: 'link',
