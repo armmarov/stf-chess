@@ -89,6 +89,12 @@ const router = createRouter({
           component: () => import('@/pages/teacher/students/StudentFormPage.vue'),
         },
         {
+          path: 'students/:id',
+          name: 'teacher-student-detail',
+          meta: { roles: ['teacher', 'admin'] },
+          component: () => import('@/pages/teacher/students/StudentDetailPage.vue'),
+        },
+        {
           path: 'students/:id/edit',
           name: 'teacher-student-edit',
           component: () => import('@/pages/teacher/students/StudentEditPage.vue'),

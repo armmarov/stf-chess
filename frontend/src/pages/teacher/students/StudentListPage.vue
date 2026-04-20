@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useToastStore } from '@/stores/toastStore'
-import { useConfirm } from '@/composables/useConfirm'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppWhatsAppLink from '@/components/AppWhatsAppLink.vue'
@@ -11,7 +10,6 @@ import AppWhatsAppLink from '@/components/AppWhatsAppLink.vue'
 const router = useRouter()
 const userStore = useUserStore()
 const toastStore = useToastStore()
-const { confirm } = useConfirm()
 
 const showInactive = ref(false)
 
@@ -30,8 +28,6 @@ const students = computed(() => {
   return allStudents.value.filter((s) => s.name.toLowerCase().includes(q))
 })
 
-const togglingId = ref<string | null>(null)
-
 async function load() {
   try {
     await userStore.fetchUsers(query.value)
@@ -40,29 +36,8 @@ async function load() {
   }
 }
 
+watch(showInactive, load)
 onMounted(load)
-
-async function toggleActive(id: string, currentActive: boolean) {
-  if (currentActive) {
-    const ok = await confirm({
-      title: 'Deactivate student?',
-      message: "They won't be able to log in until reactivated.",
-      confirmLabel: 'Deactivate',
-      variant: 'danger',
-    })
-    if (!ok) return
-  }
-  togglingId.value = id
-  try {
-    await userStore.updateUser(id, { isActive: !currentActive })
-    toastStore.show(currentActive ? 'Student deactivated.' : 'Student reactivated.', 'success')
-    await load()
-  } catch {
-    toastStore.show('Failed to update student status.', 'error')
-  } finally {
-    togglingId.value = null
-  }
-}
 </script>
 
 <template>
@@ -95,7 +70,6 @@ async function toggleActive(id: string, currentActive: boolean) {
         v-model="showInactive"
         type="checkbox"
         class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-        @change="load"
       />
       Show inactive students
     </label>
@@ -115,40 +89,34 @@ async function toggleActive(id: string, currentActive: boolean) {
       <div
         v-for="student in students"
         :key="student.id"
-        class="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between gap-3"
+        class="bg-white rounded-lg border border-gray-200 p-4 cursor-pointer hover:border-indigo-300 transition-colors"
+        @click="router.push(`/teacher/students/${student.id}`)"
       >
-        <div class="min-w-0">
-          <p class="font-medium text-gray-900 text-sm truncate">{{ student.name }}</p>
-          <p class="text-xs text-gray-500 mt-0.5 truncate">@{{ student.username }}</p>
-          <p v-if="student.className" class="text-xs text-gray-400 mt-0.5 truncate">{{ student.className }}</p>
-          <span v-if="student.phone" class="text-xs mt-0.5">
-            <AppWhatsAppLink :phone="student.phone" />
-          </span>
-        </div>
-        <div class="flex flex-wrap items-center gap-2 shrink-0">
-          <span
-            class="inline-block rounded-full text-xs px-2 py-0.5 font-medium"
-            :class="student.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'"
-          >
-            {{ student.isActive ? 'Active' : 'Inactive' }}
-          </span>
-          <AppButton
-            variant="secondary"
-            @click="router.push(`/teacher/students/${student.id}/edit`)"
-          >
-            <AppIcon name="edit" class="h-4 w-4" />
-            Edit
-          </AppButton>
-          <AppButton
-            :variant="student.isActive ? 'danger' : 'secondary'"
-            :disabled="togglingId === student.id"
-            @click="toggleActive(student.id, student.isActive)"
-          >
-            <template v-if="togglingId !== student.id">
-              <AppIcon :name="student.isActive ? 'user-minus' : 'user'" class="h-4 w-4" />
-            </template>
-            {{ togglingId === student.id ? '…' : student.isActive ? 'Deactivate' : 'Reactivate' }}
-          </AppButton>
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-gray-900 text-sm truncate">{{ student.name }}</p>
+            <p class="text-xs text-gray-500 mt-0.5 flex items-center gap-1 truncate">
+              <AppIcon name="hash" class="h-3 w-3 shrink-0 text-gray-400" />
+              @{{ student.username }}
+            </p>
+            <span v-if="student.phone" class="text-xs mt-0.5 inline-block" @click.stop>
+              <AppWhatsAppLink :phone="student.phone" />
+            </span>
+          </div>
+          <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+            <span
+              v-if="student.className"
+              class="inline-block rounded-full bg-gray-100 text-gray-700 text-xs px-2 py-0.5 font-medium"
+            >
+              {{ student.className }}
+            </span>
+            <span
+              class="inline-block rounded-full text-xs px-2 py-0.5 font-medium"
+              :class="student.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'"
+            >
+              {{ student.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
