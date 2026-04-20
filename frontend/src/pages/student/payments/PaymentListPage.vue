@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useToastStore } from '@/stores/toastStore'
 import { listPaymentHistory, downloadHistoryReceipt, getReceiptFullUrl } from '@/api/payments'
 import type { HistoryEntry } from '@/api/payments'
-import { formatDate } from '@/utils/format'
+import { formatDate, sessionSerial } from '@/utils/format'
 import AppIcon from '@/components/AppIcon.vue'
 
 const toastStore = useToastStore()
@@ -86,7 +86,7 @@ const statusLabel: Record<HistoryEntry['status'], string> = {
         <div class="flex items-start justify-between gap-2 mb-2">
           <div class="min-w-0">
             <p class="font-medium text-gray-900 text-sm">{{ formatDate(entry.sessionDate) }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">{{ entry.sessionPlace }}</p>
+            <code class="text-[10px] text-gray-400 font-mono mt-0.5">{{ sessionSerial(entry.sessionId, entry.sessionDate) }}</code>
           </div>
         </div>
 

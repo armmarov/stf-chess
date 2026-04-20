@@ -9,7 +9,7 @@ import { useConfigStore } from '@/stores/configStore'
 import { useToastStore } from '@/stores/toastStore'
 import { useConfirm } from '@/composables/useConfirm'
 import { getReceiptFullUrl } from '@/api/payments'
-import { toHHMM, formatDate } from '@/utils/format'
+import { toHHMM, formatDate, sessionSerial } from '@/utils/format'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -215,6 +215,7 @@ onUnmounted(() => {
               <AppIcon name="clock" class="h-3.5 w-3.5 text-gray-400" />
               {{ toHHMM(session.startTime) }} – {{ toHHMM(session.endTime) }}
             </p>
+            <code class="text-xs text-gray-400 font-mono mt-0.5 select-all">{{ sessionSerial(session.id, session.date) }}</code>
           </div>
           <span
             v-if="session.isCancelled"

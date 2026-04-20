@@ -8,7 +8,7 @@ import type { PaymentStatus } from '@/stores/paymentStore'
 import { getReceiptFullUrl } from '@/api/payments'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
-import { formatDate } from '@/utils/format'
+import { formatDate, sessionSerial } from '@/utils/format'
 
 const router = useRouter()
 const paymentStore = usePaymentStore()
@@ -129,9 +129,10 @@ async function quickReview(id: string, decision: 'approve' | 'reject') {
             <p class="font-medium text-gray-900 text-sm truncate">{{ payment.student.name }}</p>
             <p v-if="payment.session" class="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
               <AppIcon name="calendar" class="h-3 w-3 shrink-0" />
-              <span class="truncate">{{ formatDate(payment.session.date) }} · {{ payment.session.place }}</span>
+              <span class="truncate">{{ formatDate(payment.session.date) }}</span>
             </p>
             <p v-else class="text-xs text-gray-400 mt-0.5">No session</p>
+            <code v-if="payment.session" class="text-[10px] text-gray-400 font-mono mt-0.5">{{ sessionSerial(payment.session.id, payment.session.date) }}</code>
             <p class="text-xs text-gray-400 mt-0.5">
               RM {{ parseFloat(payment.amount).toFixed(2) }} · Uploaded {{ new Date(payment.uploadedAt).toLocaleDateString() }}
             </p>

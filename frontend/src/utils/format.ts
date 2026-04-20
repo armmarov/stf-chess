@@ -19,6 +19,12 @@ export function formatDate(iso: string, opts?: Intl.DateTimeFormatOptions): stri
   })
 }
 
+export function sessionSerial(id: string, dateISO: string): string {
+  const dateTag = dateISO.slice(0, 10).replace(/-/g, '')
+  const short = id.replace(/-/g, '').slice(0, 6).toUpperCase()
+  return `SESH-${dateTag}-${short}`
+}
+
 export function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const s = Math.floor(diff / 1000)

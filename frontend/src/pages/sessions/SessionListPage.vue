@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/sessionStore'
 import { useAuthStore } from '@/stores/authStore'
-import { toHHMM, formatDate } from '@/utils/format'
+import { toHHMM, formatDate, sessionSerial } from '@/utils/format'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -99,6 +99,7 @@ onMounted(load)
             <p class="text-sm text-gray-600 mt-0.5">
               {{ toHHMM(session.startTime) }} – {{ toHHMM(session.endTime) }} · {{ session.place }}
             </p>
+            <code class="text-[10px] text-gray-400 font-mono mt-0.5">{{ sessionSerial(session.id, session.date) }}</code>
             <p v-if="session.notes" class="text-xs text-gray-400 mt-1 line-clamp-1">
               {{ session.notes }}
             </p>

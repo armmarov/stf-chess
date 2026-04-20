@@ -8,7 +8,7 @@ import { getReceiptFullUrl } from '@/api/payments'
 import type { PaymentStatus } from '@/stores/paymentStore'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
-import { formatDate, toHHMM } from '@/utils/format'
+import { formatDate, toHHMM, sessionSerial } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -153,6 +153,13 @@ function openInNewTab() {
                 Time
               </dt>
               <dd class="text-gray-900 mt-0.5">{{ toHHMM(payment.session.startTime) }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+                <AppIcon name="hash" class="h-3.5 w-3.5" />
+                Session ID
+              </dt>
+              <dd class="mt-0.5"><code class="text-xs text-gray-700 font-mono select-all">{{ sessionSerial(payment.session.id, payment.session.date) }}</code></dd>
             </div>
           </template>
           <div>
