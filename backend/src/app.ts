@@ -16,6 +16,11 @@ import dashboardRouter from './modules/dashboard/dashboard.routes';
 
 const app = express();
 
+// Trust first proxy hop (nginx on the same host). Required for
+// express-rate-limit to read real client IPs from X-Forwarded-For,
+// and for req.ip / req.protocol to reflect the original request.
+app.set('trust proxy', 1);
+
 app.use(helmet());
 app.use(
   cors({
