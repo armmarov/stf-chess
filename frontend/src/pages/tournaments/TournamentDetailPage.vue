@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTournamentStore } from '@/stores/tournamentStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -22,6 +22,8 @@ const tournament = computed(() => tournamentStore.current)
 
 const isAdmin = computed(() => auth.user?.role === 'admin')
 const isStudent = computed(() => auth.user?.role === 'student')
+
+const lightboxOpen = ref(false)
 
 async function toggleInterest() {
   if (!tournament.value) return
@@ -68,12 +70,13 @@ onMounted(() => tournamentStore.fetchTournament(id))
     </div>
 
     <div v-else-if="tournament" class="flex flex-col gap-4">
-      <!-- Image -->
+      <!-- Image — click to open lightbox -->
       <img
         v-if="tournament.hasImage"
         :src="tournamentImageUrl(tournament.id)"
         :alt="tournament.name"
-        class="w-full max-h-64 object-cover rounded-lg"
+        class="w-full max-h-64 object-cover rounded-lg cursor-zoom-in"
+        @click="lightboxOpen = true"
       />
 
       <!-- Main card -->
@@ -193,5 +196,33 @@ onMounted(() => tournamentStore.fetchTournament(id))
     </div>
 
     <div v-else class="text-center py-10 text-gray-400 text-sm">Tournament not found.</div>
+
+    <!-- Lightbox -->
+    <Teleport to="body">
+      <div
+        v-if="lightboxOpen && tournament?.hasImage"
+        class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Tournament image"
+        @click="lightboxOpen = false"
+        @keydown.esc="lightboxOpen = false"
+        tabindex="0"
+      >
+        <button
+          class="absolute top-4 right-4 text-white/80 hover:text-white"
+          aria-label="Close"
+          @click.stop="lightboxOpen = false"
+        >
+          <AppIcon name="x-mark" class="h-6 w-6" />
+        </button>
+        <img
+          :src="tournamentImageUrl(tournament.id)"
+          :alt="tournament.name"
+          class="max-w-full max-h-full object-contain"
+          @click.stop
+        />
+      </div>
+    </Teleport>
   </div>
 </template>

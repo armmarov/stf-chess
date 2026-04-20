@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTournamentStore } from '@/stores/tournamentStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -16,6 +16,8 @@ const router = useRouter()
 
 const isAdmin = computed(() => auth.user?.role === 'admin')
 const isStudent = computed(() => auth.user?.role === 'student')
+
+const activeTab = ref<'upcoming' | 'past'>('upcoming')
 
 async function toggleInterest(id: string, currentValue: boolean | undefined) {
   try {
@@ -95,10 +97,36 @@ const past = computed(() => {
     </div>
 
     <template v-else>
-      <!-- Upcoming -->
-      <section v-if="upcoming.length > 0">
-        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Upcoming</h2>
-        <div class="flex flex-col gap-3">
+      <!-- Tabs -->
+      <div class="flex border-b border-gray-200 mb-4" role="tablist">
+        <button
+          role="tab"
+          :aria-selected="activeTab === 'upcoming'"
+          class="flex-1 text-sm font-medium py-2 -mb-px border-b-2 transition-colors"
+          :class="activeTab === 'upcoming' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+          @click="activeTab = 'upcoming'"
+        >
+          Upcoming
+          <span class="ml-1 text-xs text-gray-400">({{ upcoming.length }})</span>
+        </button>
+        <button
+          role="tab"
+          :aria-selected="activeTab === 'past'"
+          class="flex-1 text-sm font-medium py-2 -mb-px border-b-2 transition-colors"
+          :class="activeTab === 'past' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+          @click="activeTab = 'past'"
+        >
+          Past
+          <span class="ml-1 text-xs text-gray-400">({{ past.length }})</span>
+        </button>
+      </div>
+
+      <!-- Upcoming list -->
+      <div v-if="activeTab === 'upcoming'">
+        <div v-if="upcoming.length === 0" class="text-center py-10 text-gray-400 text-sm">
+          No upcoming tournaments.
+        </div>
+        <div v-else class="flex flex-col gap-3">
           <div
             v-for="t in upcoming"
             :key="t.id"
@@ -144,12 +172,14 @@ const past = computed(() => {
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      <!-- Past -->
-      <section v-if="past.length > 0" :class="upcoming.length > 0 ? 'mt-6' : ''">
-        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Past</h2>
-        <div class="flex flex-col gap-3">
+      <!-- Past list -->
+      <div v-else>
+        <div v-if="past.length === 0" class="text-center py-10 text-gray-400 text-sm">
+          No past tournaments.
+        </div>
+        <div v-else class="flex flex-col gap-3">
           <div
             v-for="t in past"
             :key="t.id"
@@ -186,7 +216,7 @@ const past = computed(() => {
             </div>
           </div>
         </div>
-      </section>
+      </div>
     </template>
   </div>
 </template>
