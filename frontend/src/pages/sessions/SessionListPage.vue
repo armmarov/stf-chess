@@ -95,13 +95,27 @@ onMounted(load)
       >
         <div class="flex items-start justify-between gap-2">
           <div>
-            <p class="font-medium text-gray-900 text-sm">{{ formatDate(session.date) }}</p>
-            <p class="text-sm text-gray-600 mt-0.5">
-              {{ toHHMM(session.startTime) }} – {{ toHHMM(session.endTime) }} · {{ session.place }}
+            <p class="font-medium text-gray-900 text-sm flex items-center gap-1.5">
+              <AppIcon name="calendar" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
+              {{ formatDate(session.date) }}
             </p>
-            <code class="text-[10px] text-gray-400 font-mono mt-0.5">{{ sessionSerial(session.id, session.date) }}</code>
-            <p v-if="session.notes" class="text-xs text-gray-400 mt-1 line-clamp-1">
-              {{ session.notes }}
+            <p class="text-sm text-gray-600 mt-0.5 flex items-center gap-3">
+              <span class="flex items-center gap-1.5">
+                <AppIcon name="clock" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                {{ toHHMM(session.startTime) }} – {{ toHHMM(session.endTime) }}
+              </span>
+              <span class="flex items-center gap-1.5 min-w-0">
+                <AppIcon name="map-pin" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                <span class="truncate">{{ session.place }}</span>
+              </span>
+            </p>
+            <p v-if="session.notes" class="text-xs text-gray-400 mt-1 flex items-start gap-1.5">
+              <AppIcon name="document" class="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
+              <span class="whitespace-pre-wrap break-words">{{ session.notes }}</span>
+            </p>
+            <p class="flex items-center gap-1.5 mt-0.5 leading-none">
+              <AppIcon name="hash" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
+              <code class="text-[11px] text-gray-400 font-mono leading-none">{{ sessionSerial(session.id, session.date) }}</code>
             </p>
           </div>
           <div class="flex flex-col items-end gap-1 shrink-0">
