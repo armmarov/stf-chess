@@ -46,7 +46,7 @@ export async function listSessions(query: ListSessionsQuery, studentId?: string)
   const sessions = await prisma.session.findMany({
     where,
     select: SESSION_SELECT,
-    orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+    orderBy: [{ date: 'desc' }, { startTime: 'desc' }],
   });
 
   if (!studentId) return sessions;
