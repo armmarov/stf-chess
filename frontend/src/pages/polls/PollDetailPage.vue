@@ -26,6 +26,13 @@ const poll = computed(() => pollStore.current)
 const isAdmin = computed(() => auth.user?.role === 'admin')
 
 const selectedOptionId = ref('')
+
+const lightboxOptionId = ref<string | null>(null)
+const lightboxUrl = computed(() =>
+  lightboxOptionId.value && poll.value
+    ? pollOptionImageUrl(poll.value.id, lightboxOptionId.value)
+    : '',
+)
 const voting = ref(false)
 const expandedVoters = ref(new Set<string>())
 
@@ -165,7 +172,8 @@ onMounted(() => pollStore.fetchPoll(id))
               v-if="option.hasImage"
               :src="pollOptionImageUrl(poll.id, option.id)"
               :alt="option.label"
-              class="h-12 w-12 object-cover rounded shrink-0"
+              class="h-12 w-12 object-cover rounded shrink-0 cursor-zoom-in"
+              @click.prevent.stop="lightboxOptionId = option.id"
             />
             <span class="text-sm text-gray-900">{{ option.label }}</span>
           </label>
@@ -199,7 +207,8 @@ onMounted(() => pollStore.fetchPoll(id))
               v-if="option.hasImage"
               :src="pollOptionImageUrl(poll.id, option.id)"
               :alt="option.label"
-              class="h-8 w-8 object-cover rounded shrink-0"
+              class="h-8 w-8 object-cover rounded shrink-0 cursor-zoom-in"
+              @click.stop="lightboxOptionId = option.id"
             />
             <div class="flex-1 min-w-0">
               <p class="text-sm text-gray-900 truncate">{{ option.label }}</p>
@@ -252,5 +261,33 @@ onMounted(() => pollStore.fetchPoll(id))
     </div>
 
     <div v-else class="text-center py-10 text-gray-400 text-sm">Poll not found.</div>
+
+    <!-- Lightbox -->
+    <Teleport to="body">
+      <div
+        v-if="lightboxOptionId"
+        class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Option image"
+        tabindex="0"
+        @click="lightboxOptionId = null"
+        @keydown.esc="lightboxOptionId = null"
+      >
+        <button
+          class="absolute top-4 right-4 text-white/80 hover:text-white"
+          aria-label="Close"
+          @click.stop="lightboxOptionId = null"
+        >
+          <AppIcon name="x-mark" class="h-6 w-6" />
+        </button>
+        <img
+          :src="lightboxUrl"
+          alt=""
+          class="max-w-full max-h-full object-contain"
+          @click.stop
+        />
+      </div>
+    </Teleport>
   </div>
 </template>
