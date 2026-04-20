@@ -40,6 +40,8 @@ const links = computed<NavLink[]>(() => {
     base.push({ label: 'Payments', to: '/student/payments' })
   }
 
+  base.push({ label: 'Profile', to: '/profile', icon: 'user-circle' })
+
   return base
 })
 

@@ -57,6 +57,7 @@ Role enforcement is **server-side only**. Frontend hides UI elements for conveni
 | Update student — name/phone/isActive (`PATCH /users/:id`) | ✓     | ✓ (student only)|      |         |
 | Update own name/phone (`PATCH /users/:id` self)           | ✓     | ✓              | ✓     | ✓       |
 | Reset any user's password (`POST /users/:id/password`)    | ✓     |                |       |         |
+| Change own password (`POST /auth/change-password`)        | ✓     | ✓              | ✓     | ✓       |
 | **Sessions**                                              |       |                |       |         |
 | List sessions (`GET /sessions`)                           | ✓     | ✓              | ✓     | ✓       |
 | Create / edit / cancel session                            | ✓     | ✓              |       |         |

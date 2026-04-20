@@ -12,6 +12,7 @@ const links: NavLink[] = [
   { label: 'Sessions', to: '/sessions', icon: 'calendar' },
   { label: 'Students', to: '/teacher/students', icon: 'users' },
   { label: 'Payments', to: '/payments/review', icon: 'dollar' },
+  { label: 'Profile', to: '/profile', icon: 'user-circle' },
 ]
 
 async function handleLogout() {

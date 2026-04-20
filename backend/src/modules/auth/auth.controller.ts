@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { loginSchema } from './auth.validators';
-import { loginUser } from './auth.service';
+import { loginSchema, changePasswordSchema } from './auth.validators';
+import { loginUser, changePassword } from './auth.service';
 import { env } from '../../config/env';
 import { AppError } from '../../middleware/errorHandler';
 
@@ -46,4 +46,27 @@ export function logout(_req: Request, res: Response): void {
 
 export function me(req: Request, res: Response): void {
   res.json({ user: req.user });
+}
+
+export async function changePasswordHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const parsed = changePasswordSchema.safeParse(req.body);
+    if (!parsed.success) { next(parsed.error); return; }
+
+    await changePassword(req.user!.id, parsed.data.currentPassword, parsed.data.newPassword);
+    res.status(204).end();
+  } catch (err: unknown) {
+    const e = err as { statusCode?: number; message: string };
+    if (e.statusCode === 401) {
+      next(new AppError(401, 'Current password is incorrect'));
+    } else if (e.statusCode === 400) {
+      next(new AppError(400, 'New password must be different from current'));
+    } else {
+      next(err);
+    }
+  }
 }

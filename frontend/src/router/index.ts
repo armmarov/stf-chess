@@ -180,6 +180,17 @@ const router = createRouter({
       ],
     },
     {
+      path: '/profile',
+      component: () => import('@/layouts/AppLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'profile',
+          component: () => import('@/pages/ProfilePage.vue'),
+        },
+      ],
+    },
+    {
       path: '/',
       redirect: '/login',
     },

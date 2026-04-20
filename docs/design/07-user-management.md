@@ -35,6 +35,12 @@ Admin sets initial password (POST /users with password field)
       ▼
 User logs in with that password
       │
+      ├── Want to change own password?
+      │         │
+      │         ▼
+      │   POST /auth/change-password { currentPassword, newPassword }
+      │   (any role; must supply current password to verify)
+      │
       ├── Lost / needs reset?
       │         │
       │         ▼
@@ -43,13 +49,14 @@ User logs in with that password
       │         ▼
       │   Admin shares new password out-of-band
       │
-      └── Phase 1: no self-service password change, no reset flow
-          (REQUIREMENTS §11 decision #1; §10 out-of-scope)
+      └── Forgotten-password / email reset: out of scope (REQUIREMENTS §10)
 ```
 
 - Password is hashed with **bcrypt** (cost factor 10) before storage. Plain-text is never stored or returned.
-- Minimum length: **8 characters** (enforced by Zod at both creation and reset).
-- Only admin can call `POST /users/:id/password` — no role (including self) may change their own password via the API in Phase 1.
+- Minimum length: **8 characters** (enforced by Zod at creation, reset, and self-change).
+- Any authenticated user may change their own password via `POST /auth/change-password` — must supply the correct current password; new password must differ from current.
+- Admin may reset any user's password via `POST /users/:id/password` without supplying the current password.
+- JWT cookie is **not revoked** after a self-change — existing sessions remain active.
 
 ## Username Rules
 

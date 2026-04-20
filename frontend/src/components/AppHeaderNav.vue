@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { onClickOutside } from '@vueuse/core'
 import AppIcon from '@/components/AppIcon.vue'
@@ -20,6 +20,10 @@ const emit = defineEmits<{ logout: [] }>()
 
 const router = useRouter()
 const notifStore = useNotificationStore()
+
+const dashboardLink = computed(
+  () => props.links.find((l) => l.label === 'Dashboard')?.to ?? '/',
+)
 
 const menuOpen = ref(false)
 const mobileNav = ref<HTMLElement | null>(null)
@@ -71,11 +75,11 @@ function handleNotifClick(n: Notification) {
 <template>
   <header class="bg-white border-b border-gray-200 shadow-sm">
     <div class="flex items-center justify-between px-4 py-3">
-      <!-- Logo -->
-      <div class="flex items-center gap-2">
+      <!-- Logo — click returns to role dashboard -->
+      <RouterLink :to="dashboardLink" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
         <img src="@/assets/logo-transparent.png" alt="STF Supreme Chess" class="h-8 w-auto" />
         <span class="font-semibold text-gray-900 text-sm">STF Supreme Chess</span>
-      </div>
+      </RouterLink>
 
       <!-- Right side: desktop nav + bell + mobile burger -->
       <div class="flex items-center gap-2">

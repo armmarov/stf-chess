@@ -153,6 +153,19 @@ components:
           format: password
           description: Minimum 8 characters.
 
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          description: The user's existing password (used to verify identity).
+        newPassword:
+          type: string
+          format: password
+          description: "Minimum 8 characters. Must differ from currentPassword."
+
     UserSummary:
       type: object
       required: [id, name]
@@ -1609,6 +1622,55 @@ paths:
                 user_inactive:
                   value:
                     error: User not found or inactive
+
+  /auth/change-password:
+    post:
+      summary: Change own password
+      operationId: changePassword
+      tags: [Auth]
+      description: |
+        Allows any authenticated user to change their own password.
+        The caller must supply their current password for verification.
+        The JWT cookie is **not revoked** on success — existing sessions remain active.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Password changed. No response body. Existing JWT session remains active.
+        '400':
+          description: |
+            Validation error. Two distinct cases:
+            - `newPassword` is less than 8 characters (Zod)
+            - New and current passwords are identical → `"New password must be different from current"`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                too_short:
+                  value:
+                    error: Validation error
+                same_password:
+                  value:
+                    error: New password must be different from current
+        '401':
+          description: |
+            Not authenticated, or `currentPassword` does not match the stored hash → `"Current password is incorrect"`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                unauthenticated:
+                  value:
+                    error: Authentication required
+                wrong_current:
+                  value:
+                    error: Current password is incorrect
 
   /config/fee:
     get:

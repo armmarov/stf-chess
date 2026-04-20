@@ -53,6 +53,24 @@ export function verifyToken(token: string): JwtPayload {
   return jwt.verify(token, env.JWT_SECRET) as JwtPayload;
 }
 
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const record = await prisma.user.findUnique({ where: { id: userId } });
+  if (!record) throw Object.assign(new Error('User not found'), { statusCode: 404 });
+
+  const valid = await bcrypt.compare(currentPassword, record.passwordHash);
+  if (!valid) throw Object.assign(new Error('Current password is incorrect'), { statusCode: 401 });
+
+  const same = await bcrypt.compare(newPassword, record.passwordHash);
+  if (same) throw Object.assign(new Error('New password must be different from current'), { statusCode: 400 });
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash: hash } });
+}
+
 export async function getUserById(id: string): Promise<AuthUser | null> {
   const record = await prisma.user.findUnique({ where: { id } });
   if (!record || !record.isActive) return null;
