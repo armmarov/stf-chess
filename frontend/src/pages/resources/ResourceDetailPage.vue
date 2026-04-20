@@ -133,16 +133,20 @@ onMounted(() => resourceStore.fetchResource(id))
           <AppIcon name="link" class="h-4 w-4" />
           Open Link
         </a>
-        <AppButton
-          v-if="resource.hasFile"
-          variant="secondary"
-          class="w-full"
-          :disabled="downloading"
-          @click="handleDownload"
-        >
-          <AppIcon name="download" class="h-4 w-4" />
-          {{ downloading ? 'Downloading…' : resource.fileName ? `Download ${resource.fileName}` : 'Download' }}
-        </AppButton>
+        <div v-if="resource.hasFile" class="flex flex-col gap-1">
+          <AppButton
+            variant="secondary"
+            class="w-full"
+            :disabled="downloading"
+            @click="handleDownload"
+          >
+            <AppIcon name="download" class="h-4 w-4" />
+            {{ downloading ? 'Downloading…' : 'Download' }}
+          </AppButton>
+          <p v-if="resource.fileName" class="text-xs text-gray-500 truncate" :title="resource.fileName">
+            {{ resource.fileName }}
+          </p>
+        </div>
       </div>
     </div>
 
