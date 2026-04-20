@@ -176,7 +176,7 @@ onMounted(async () => {
             </div>
 
             <!-- Line 3: PAYMENT section label + Cash checkbox + Online status -->
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-3 flex-wrap">
               <span class="w-20 shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Payment</span>
               <label
                 class="flex items-center gap-1.5"
