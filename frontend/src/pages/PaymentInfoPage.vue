@@ -31,13 +31,15 @@ async function copyAccount() {
     </h1>
 
     <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <img
-        :src="qrImage"
-        alt="Maybank QR — Ammar Bin Abdullah"
-        class="w-full"
-      />
+      <div class="flex justify-center p-5 border-b border-gray-100 bg-gray-50">
+        <img
+          :src="qrImage"
+          alt="Maybank QR — Ammar Bin Abdullah"
+          class="max-w-[260px] w-full h-auto"
+        />
+      </div>
 
-      <div class="p-5 flex flex-col gap-3 border-t border-gray-100">
+      <div class="p-5 flex flex-col gap-3">
         <div>
           <p class="text-xs text-gray-500 uppercase tracking-wide">Bank</p>
           <p class="text-gray-900 mt-0.5">Maybank</p>
