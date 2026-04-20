@@ -32,10 +32,22 @@ export async function togglePreAttendance(
     throw new AppError(400, 'Target must be an active student');
   }
 
-  // Cutoff applies only when a student acts on themselves; staff can bypass
+  // Cutoff applies only when a student acts on themselves; staff can bypass.
+  // Session startTime is stored as UTC-tagged wall-clock (toDateTime appends Z),
+  // so compare against "now as if it were UTC" to cancel out the TZ offset.
   if (actor.role === 'student') {
-    const cutoff = new Date(session.startTime.getTime() - PRE_ATTENDANCE_CUTOFF_MS);
-    if (new Date() >= cutoff) {
+    const cutoffMs = session.startTime.getTime() - PRE_ATTENDANCE_CUTOFF_MS;
+    const n = new Date();
+    const wallClockNowMs = Date.UTC(
+      n.getFullYear(),
+      n.getMonth(),
+      n.getDate(),
+      n.getHours(),
+      n.getMinutes(),
+      n.getSeconds(),
+      n.getMilliseconds(),
+    );
+    if (wallClockNowMs >= cutoffMs) {
       throw new AppError(409, 'Pre-attendance cutoff has passed');
     }
   }

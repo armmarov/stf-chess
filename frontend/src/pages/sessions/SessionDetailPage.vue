@@ -44,16 +44,33 @@ const preAttended = computed(() => {
   return session.value?.myPreAttended ?? false
 })
 
+// Stored session times are UTC-tagged wall-clock (backend toDateTime appends Z).
+// Compare against "now as if it were UTC" so the TZ offset cancels out.
+function wallClockNowMs(): number {
+  const n = new Date()
+  return Date.UTC(
+    n.getFullYear(),
+    n.getMonth(),
+    n.getDate(),
+    n.getHours(),
+    n.getMinutes(),
+    n.getSeconds(),
+    n.getMilliseconds(),
+  )
+}
+
 const canPreAttend = computed(() => {
   if (!session.value || session.value.isCancelled) return false
   const cutoffMs = new Date(session.value.startTime).getTime() - 10 * 60 * 1000
-  return Date.now() < cutoffMs
+  return wallClockNowMs() < cutoffMs
 })
 
 const preAttendCutoffLabel = computed(() => {
   if (!session.value) return ''
   const cutoff = new Date(new Date(session.value.startTime).getTime() - 10 * 60 * 1000)
-  return cutoff.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })
+  const hh = String(cutoff.getUTCHours()).padStart(2, '0')
+  const mm = String(cutoff.getUTCMinutes()).padStart(2, '0')
+  return `${hh}:${mm}`
 })
 
 async function togglePreAttend() {
