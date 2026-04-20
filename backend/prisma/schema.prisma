@@ -45,6 +45,7 @@ model User {
   tournamentInterests TournamentInterest[]  @relation("TournamentInterest")
   pollsCreated        Poll[]                @relation("PollCreatedBy")
   votes               Vote[]                @relation("UserVotes")
+  resourcesCreated    Resource[]            @relation("ResourceCreatedBy")
 
   @@map("users")
 }
@@ -243,4 +244,32 @@ model Vote {
   @@unique([pollId, userId])
   @@index([optionId])
   @@map("votes")
+}
+
+enum ResourceType {
+  book
+  homework
+  app
+}
+
+model Resource {
+  id          String       @id @default(uuid())
+  title       String       @db.VarChar(200)
+  type        ResourceType
+  description String?
+  imagePath   String?      @map("image_path")
+  filePath    String?      @map("file_path")
+  fileName    String?      @map("file_name") @db.VarChar(255)
+  fileMime    String?      @map("file_mime") @db.VarChar(100)
+  url         String?
+  isEnabled   Boolean      @default(true) @map("is_enabled")
+  createdById String       @map("created_by_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  createdBy User @relation("ResourceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([type])
+  @@index([isEnabled])
+  @@map("resources")
 }

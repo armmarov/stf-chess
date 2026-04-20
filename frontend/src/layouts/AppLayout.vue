@@ -25,6 +25,7 @@ const links = computed<NavLink[]>(() => {
     { label: 'Sessions', to: '/sessions', icon: 'calendar' },
     { label: 'Tournaments', to: '/tournaments', icon: 'trophy' },
     { label: 'Polls', to: '/polls', icon: 'clipboard' },
+    { label: 'Resources', to: '/resources', icon: 'book' },
   ]
 
   if (role === 'admin') {

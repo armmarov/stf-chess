@@ -82,3 +82,33 @@ export const pollOptionImagesUpload = multer({
     TOURNAMENT_MIMES.has(file.mimetype) ? cb(null, true) : cb(new Error('INVALID_MIME'));
   },
 }).fields(Array.from({ length: 10 }, (_, i) => ({ name: `option_${i}`, maxCount: 1 })));
+
+// Resource upload — image (JPEG/PNG/WebP ≤5 MB) + file (any type ≤20 MB)
+const RESOURCE_FILE_MAX = 20 * 1024 * 1024;
+
+const resourceStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = path.join(UPLOADS_DIR, 'resources');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.bin';
+    cb(null, `${uuidv4()}${ext}`);
+  },
+});
+
+export const resourceUpload = multer({
+  storage: resourceStorage,
+  limits: { fileSize: RESOURCE_FILE_MAX },
+  fileFilter: (_req: Request, file, cb: multer.FileFilterCallback) => {
+    if (file.fieldname === 'image' && !TOURNAMENT_MIMES.has(file.mimetype)) {
+      cb(new Error('INVALID_IMAGE_MIME'));
+    } else {
+      cb(null, true);
+    }
+  },
+}).fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'file', maxCount: 1 },
+]);

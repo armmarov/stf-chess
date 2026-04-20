@@ -25,6 +25,7 @@ export async function resetDb(): Promise<void> {
     prisma.$executeRawUnsafe('TRUNCATE TABLE "sessions" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "tournaments" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "polls" CASCADE'),
+    prisma.$executeRawUnsafe('TRUNCATE TABLE "resources" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "app_configs" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "users" CASCADE'),
   ]);

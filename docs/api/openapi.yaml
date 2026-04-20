@@ -961,6 +961,81 @@ components:
           format: uuid
           description: ID of the poll option to vote for.
 
+    ResourceType:
+      type: string
+      enum: [book, homework, app]
+      description: Category of the resource.
+
+    ResourceDetail:
+      type: object
+      required: [id, title, type, description, url, isEnabled, hasImage, hasFile, fileName, createdBy, createdAt, updatedAt]
+      description: |
+        A resource item as returned in all resource API responses.
+        `imagePath`, `filePath`, and `fileMime` are internal fields and are **never exposed**.
+        Non-admin callers only receive resources where `isEnabled=true`.
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 200
+        type:
+          $ref: '#/components/schemas/ResourceType'
+        description:
+          type: string
+          nullable: true
+        url:
+          type: string
+          format: uri
+          nullable: true
+          description: Optional external URL. Must be a valid URL if provided.
+        isEnabled:
+          type: boolean
+          description: Admin-controlled visibility flag. Non-admins never see disabled resources.
+        hasImage:
+          type: boolean
+          description: True if an image has been uploaded for this resource.
+        hasFile:
+          type: boolean
+          description: True if a downloadable file has been uploaded for this resource.
+        fileName:
+          type: string
+          nullable: true
+          description: Original filename of the uploaded file. Null if no file is attached.
+        createdBy:
+          type: object
+          required: [id, name]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ResourceListResponse:
+      type: object
+      required: [resources]
+      properties:
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceDetail'
+          description: Sorted by createdAt descending.
+
+    ResourceResponse:
+      type: object
+      required: [resource]
+      properties:
+        resource:
+          $ref: '#/components/schemas/ResourceDetail'
+
     StudentDashboardStats:
       type: object
       required: [totalSessions, sessionsJoined, pendingPayments]
@@ -3416,3 +3491,385 @@ paths:
                 already_voted:
                   value:
                     error: You have already voted
+
+  /resources:
+    get:
+      summary: List resources
+      operationId: listResources
+      tags: [Resources]
+      description: |
+        Returns resources ordered by createdAt descending.
+        - **Non-admin:** only `isEnabled=true` resources are returned.
+        - **Admin:** all resources regardless of `isEnabled`.
+      parameters:
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/ResourceType'
+          description: Filter by resource type. Omit to return all types.
+      responses:
+        '200':
+          description: Resource list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceListResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create resource (admin only)
+      operationId: createResource
+      tags: [Resources]
+      description: |
+        Creates a new resource. Admin only. Request must be `multipart/form-data`.
+
+        **File fields:**
+        - `image` — JPEG, PNG, or WebP; max **5 MB**.
+        - `file` — any MIME type; max **20 MB**. Original filename is stored and returned as `fileName`.
+
+        Both file fields are optional.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title, type]
+              properties:
+                title:
+                  type: string
+                  maxLength: 200
+                type:
+                  $ref: '#/components/schemas/ResourceType'
+                description:
+                  type: string
+                url:
+                  type: string
+                  format: uri
+                  description: Must be a valid URL if provided. Empty string is ignored.
+                isEnabled:
+                  type: string
+                  enum: ['true', 'false']
+                  description: Defaults to 'true' if omitted.
+                image:
+                  type: string
+                  format: binary
+                  description: Optional thumbnail/cover image (JPEG/PNG/WebP, max 5 MB).
+                file:
+                  type: string
+                  format: binary
+                  description: Optional downloadable file (any type, max 20 MB).
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+        '400':
+          description: Validation error or invalid file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_image_type:
+                  value:
+                    error: 'Invalid image type. Allowed: JPEG, PNG, WebP'
+                image_too_large:
+                  value:
+                    error: Image exceeds 5 MB limit
+                file_too_large:
+                  value:
+                    error: File exceeds 20 MB limit
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+
+  /resources/{id}:
+    get:
+      summary: Get resource
+      operationId: getResource
+      tags: [Resources]
+      description: |
+        Returns a single resource. Available to every authenticated role.
+        Non-admin callers receive 404 for disabled resources (same as not found).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Resource detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Resource not found or disabled (non-admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Resource not found
+
+    patch:
+      summary: Update resource (admin only)
+      operationId: updateResource
+      tags: [Resources]
+      description: |
+        Updates a resource. Admin only. Request must be `multipart/form-data`; all fields are optional.
+
+        - Send `removeImage=true` to delete the existing image from disk and clear `hasImage`.
+        - Send `removeFile=true` to delete the existing file from disk and clear `hasFile`/`fileName`.
+        - Uploading a new `image` or `file` replaces the existing one (old file deleted from disk).
+        - Send `description=""` or `url=""` to clear those fields.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  maxLength: 200
+                type:
+                  $ref: '#/components/schemas/ResourceType'
+                description:
+                  type: string
+                  nullable: true
+                  description: Send empty string to clear.
+                url:
+                  type: string
+                  nullable: true
+                  description: Must be a valid URL if provided. Send empty string to clear.
+                isEnabled:
+                  type: string
+                  enum: ['true', 'false']
+                removeImage:
+                  type: string
+                  enum: ['true']
+                  description: Send the string 'true' to remove the existing image.
+                removeFile:
+                  type: string
+                  enum: ['true']
+                  description: Send the string 'true' to remove the existing file.
+                image:
+                  type: string
+                  format: binary
+                  description: Replacement image (JPEG/PNG/WebP, max 5 MB). Replaces existing if present.
+                file:
+                  type: string
+                  format: binary
+                  description: Replacement file (any type, max 20 MB). Replaces existing if present.
+      responses:
+        '200':
+          description: Updated resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+        '400':
+          description: Validation error or invalid file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Resource not found
+
+    delete:
+      summary: Delete resource (admin only)
+      operationId: deleteResource
+      tags: [Resources]
+      description: |
+        Hard-deletes the resource and removes both image and file from disk. Admin only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Resource deleted
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Resource not found
+
+  /resources/{id}/image:
+    get:
+      summary: Download resource image
+      operationId: downloadResourceImage
+      tags: [Resources]
+      description: |
+        Streams the resource's image file. Available to every authenticated role.
+        Non-admin callers receive 404 for disabled resources.
+        `Content-Disposition: inline`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Image file
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Resource not found, disabled (non-admin), or no image attached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_found:
+                  value:
+                    error: Resource not found
+                no_image:
+                  value:
+                    error: No image for this resource
+                file_missing:
+                  value:
+                    error: Image file not found
+
+  /resources/{id}/file:
+    get:
+      summary: Download resource file
+      operationId: downloadResourceFile
+      tags: [Resources]
+      description: |
+        Streams the resource's downloadable file. Available to every authenticated role.
+        Non-admin callers receive 404 for disabled resources.
+        `Content-Disposition: attachment; filename="<originalName>"`.
+        `Content-Type` is the stored MIME type of the file (`application/octet-stream` if unknown).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Resource not found, disabled (non-admin), or no file attached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_found:
+                  value:
+                    error: Resource not found
+                no_file:
+                  value:
+                    error: No file for this resource
+                file_missing:
+                  value:
+                    error: File not found

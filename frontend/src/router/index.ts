@@ -86,6 +86,16 @@ const router = createRouter({
           name: 'admin-poll-edit',
           component: () => import('@/pages/admin/polls/PollFormPage.vue'),
         },
+        {
+          path: 'resources/new',
+          name: 'admin-resource-new',
+          component: () => import('@/pages/admin/resources/ResourceFormPage.vue'),
+        },
+        {
+          path: 'resources/:id/edit',
+          name: 'admin-resource-edit',
+          component: () => import('@/pages/admin/resources/ResourceFormPage.vue'),
+        },
       ],
     },
     {
@@ -223,6 +233,22 @@ const router = createRouter({
           path: ':id',
           name: 'poll-detail',
           component: () => import('@/pages/polls/PollDetailPage.vue'),
+        },
+      ],
+    },
+    {
+      path: '/resources',
+      component: () => import('@/layouts/AppLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'resource-list',
+          component: () => import('@/pages/resources/ResourceListPage.vue'),
+        },
+        {
+          path: ':id',
+          name: 'resource-detail',
+          component: () => import('@/pages/resources/ResourceDetailPage.vue'),
         },
       ],
     },

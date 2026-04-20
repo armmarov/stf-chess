@@ -15,6 +15,7 @@ import notificationsRouter from './modules/notifications/notifications.routes';
 import dashboardRouter from './modules/dashboard/dashboard.routes';
 import tournamentsRouter from './modules/tournaments/tournaments.routes';
 import pollsRouter from './modules/polls/polls.routes';
+import resourcesRouter from './modules/resources/resources.routes';
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/tournaments', tournamentsRouter);
 app.use('/api/polls', pollsRouter);
+app.use('/api/resources', resourcesRouter);
 
 app.use(errorHandler);
 

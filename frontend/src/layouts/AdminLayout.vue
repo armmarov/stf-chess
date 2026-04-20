@@ -12,6 +12,7 @@ const links: NavLink[] = [
   { label: 'Sessions', to: '/sessions', icon: 'calendar' },
   { label: 'Tournaments', to: '/tournaments', icon: 'trophy' },
   { label: 'Polls', to: '/polls', icon: 'clipboard' },
+  { label: 'Resources', to: '/resources', icon: 'book' },
   { label: 'Users', to: '/admin/users', icon: 'users' },
   { label: 'Payments', to: '/payments/review', icon: 'dollar' },
   { label: 'Fee', to: '/admin/config/fee', icon: 'settings' },
