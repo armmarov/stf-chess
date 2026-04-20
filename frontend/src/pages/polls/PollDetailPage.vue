@@ -218,31 +218,34 @@ onMounted(() => pollStore.fetchPoll(id))
           </div>
 
           <!-- Collapsible voters list (admin/teacher only — voters field absent for students) -->
-          <template v-if="option.voters !== undefined">
-            <button
-              type="button"
-              class="ml-6 mt-1 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-              @click="toggleVoters(option.id)"
-            >
-              <AppIcon
-                :name="expandedVoters.has(option.id) ? 'chevron-up' : 'chevron-down'"
-                class="h-3 w-3"
-              />
-              Who voted ({{ option.voters.length }})
-            </button>
-            <div v-if="expandedVoters.has(option.id)" class="ml-6 mt-1 flex flex-col gap-1">
-              <div
-                v-for="voter in option.voters"
-                :key="voter.id"
-                class="flex items-center gap-2 text-xs text-gray-600"
+          <template v-for="option in poll.options" :key="`voters-${option.id}`">
+            <div v-if="option.voters !== undefined" class="pl-3">
+              <button
+                type="button"
+                class="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                @click="toggleVoters(option.id)"
               >
-                <span>{{ voter.name }}</span>
-                <span
-                  v-if="voter.className"
-                  class="rounded-full bg-gray-100 px-1.5 py-0.5 text-gray-500 text-[10px]"
-                >{{ voter.className }}</span>
+                <AppIcon
+                  :name="expandedVoters.has(option.id) ? 'chevron-up' : 'chevron-down'"
+                  class="h-3 w-3"
+                />
+                <span class="font-medium">{{ option.label }}</span>
+                — Who voted ({{ option.voters.length }})
+              </button>
+              <div v-if="expandedVoters.has(option.id)" class="ml-5 mt-1 flex flex-col gap-1">
+                <div
+                  v-for="voter in option.voters"
+                  :key="voter.id"
+                  class="flex items-center gap-2 text-xs text-gray-600"
+                >
+                  <span>{{ voter.name }}</span>
+                  <span
+                    v-if="voter.className"
+                    class="rounded-full bg-gray-100 px-1.5 py-0.5 text-gray-500 text-[10px]"
+                  >{{ voter.className }}</span>
+                </div>
+                <p v-if="option.voters.length === 0" class="text-xs text-gray-400 italic">No voters yet.</p>
               </div>
-              <p v-if="option.voters.length === 0" class="text-xs text-gray-400 italic">No voters yet.</p>
             </div>
           </template>
         </div>
