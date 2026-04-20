@@ -82,6 +82,13 @@ const canSubmit = computed(() => {
   return true
 })
 
+// datetime-local inputs emit YYYY-MM-DDTHH:MM; pad to full ISO (UTC-tagged
+// wall-clock convention, matches how sessions store times).
+function toIsoWallClock(local: string): string {
+  const padded = local.length === 16 ? `${local}:00` : local
+  return padded.endsWith('Z') ? padded : `${padded}Z`
+}
+
 async function handleSubmit() {
   if (!canSubmit.value) return
   submitting.value = true
@@ -90,8 +97,8 @@ async function handleSubmit() {
       await pollStore.update(pollId, {
         title: title.value.trim(),
         description: description.value.trim() || null,
-        startDate: startDate.value,
-        endDate: endDate.value,
+        startDate: toIsoWallClock(startDate.value),
+        endDate: toIsoWallClock(endDate.value),
       })
       toastStore.show('Poll updated.', 'success')
       router.push(`/polls/${pollId}`)
@@ -101,8 +108,8 @@ async function handleSubmit() {
         {
           title: title.value.trim(),
           description: description.value.trim() || undefined,
-          startDate: startDate.value,
-          endDate: endDate.value,
+          startDate: toIsoWallClock(startDate.value),
+          endDate: toIsoWallClock(endDate.value),
           options: validRows.map((o) => ({ label: o.label.trim() })),
         },
         validRows.map((o) => o.imageFile),
