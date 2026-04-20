@@ -79,8 +79,7 @@ onMounted(() => tournamentStore.fetchTournament(id))
       <!-- Main card -->
       <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="flex items-start justify-between gap-3 mb-4">
-          <h1 class="text-lg font-semibold text-gray-900 flex items-center gap-1.5">
-            <AppIcon name="trophy" class="h-5 w-5 text-indigo-500 shrink-0" />
+          <h1 class="text-lg font-semibold text-gray-900">
             {{ tournament.name }}
           </h1>
 
