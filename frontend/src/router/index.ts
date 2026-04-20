@@ -234,6 +234,17 @@ const router = createRouter({
       ],
     },
     {
+      path: '/payment-info',
+      component: () => import('@/layouts/AppLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'payment-info',
+          component: () => import('@/pages/PaymentInfoPage.vue'),
+        },
+      ],
+    },
+    {
       path: '/',
       redirect: '/login',
     },

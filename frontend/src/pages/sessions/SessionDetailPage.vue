@@ -452,8 +452,18 @@ onUnmounted(() => {
           <div v-if="latestPayment!.note" class="rounded bg-red-50 border border-red-100 p-2 text-xs text-red-700 mb-3">
             Reason: {{ latestPayment!.note }}
           </div>
-          <div v-if="configStore.fee !== null" class="text-xs text-gray-500 mb-3">
-            Session fee: <span class="font-semibold text-gray-900">RM {{ configStore.fee.toFixed(2) }}</span>
+          <div class="flex items-center justify-between mb-3 gap-2">
+            <div v-if="configStore.fee !== null" class="text-xs text-gray-500">
+              Session fee: <span class="font-semibold text-gray-900">RM {{ configStore.fee.toFixed(2) }}</span>
+            </div>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+              @click="router.push('/payment-info')"
+            >
+              <AppIcon name="qr-code" class="h-3.5 w-3.5" />
+              Show QR
+            </button>
           </div>
           <div class="flex flex-col gap-3">
             <input
@@ -477,8 +487,18 @@ onUnmounted(() => {
 
         <!-- State 6: attended, no payment yet → upload form -->
         <template v-else-if="paymentState === 'upload'">
-          <div v-if="configStore.fee !== null" class="text-xs text-gray-500 mb-3">
-            Session fee: <span class="font-semibold text-gray-900">RM {{ configStore.fee.toFixed(2) }}</span>
+          <div class="flex items-center justify-between mb-3 gap-2">
+            <div v-if="configStore.fee !== null" class="text-xs text-gray-500">
+              Session fee: <span class="font-semibold text-gray-900">RM {{ configStore.fee.toFixed(2) }}</span>
+            </div>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+              @click="router.push('/payment-info')"
+            >
+              <AppIcon name="qr-code" class="h-3.5 w-3.5" />
+              Show QR
+            </button>
           </div>
           <div class="flex flex-col gap-3">
             <input
