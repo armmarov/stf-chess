@@ -36,6 +36,16 @@ const TYPE_COLORS: Record<ResourceType, string> = {
   app: 'bg-emerald-100 text-emerald-700',
 }
 
+// Ensure URL has a scheme so target="_blank" opens as absolute, not relative.
+function normalizeUrl(raw: string): string {
+  if (/^https?:\/\//i.test(raw)) return raw
+  return `https://${raw}`
+}
+
+function openUrl(raw: string) {
+  window.open(normalizeUrl(raw), '_blank', 'noopener,noreferrer')
+}
+
 async function handleDownload() {
   downloading.value = true
   try {
@@ -123,16 +133,15 @@ onMounted(() => resourceStore.fetchResource(id))
         v-if="resource.url || resource.hasFile"
         class="bg-white rounded-lg border border-gray-200 p-4 flex flex-col gap-2"
       >
-        <a
+        <button
           v-if="resource.url"
-          :href="resource.url"
-          target="_blank"
-          rel="noopener noreferrer"
+          type="button"
           class="flex items-center justify-center gap-2 w-full rounded-lg bg-indigo-600 text-white text-sm font-medium px-4 py-2.5 hover:bg-indigo-700 transition-colors"
+          @click="openUrl(resource.url)"
         >
           <AppIcon name="link" class="h-4 w-4" />
           Open Link
-        </a>
+        </button>
         <div v-if="resource.hasFile" class="flex flex-col gap-1">
           <AppButton
             variant="secondary"
