@@ -10,6 +10,7 @@ const router = useRouter()
 const links: NavLink[] = [
   { label: 'Dashboard', to: '/student', exact: true, icon: 'home' },
   { label: 'Sessions', to: '/sessions', icon: 'calendar' },
+  { label: 'Tournaments', to: '/tournaments', icon: 'trophy' },
   { label: 'Payments', to: '/student/payments', icon: 'dollar' },
   { label: 'Profile', to: '/profile', icon: 'user-circle' },
   { label: 'About', to: '/about', icon: 'info' },

@@ -23,6 +23,7 @@ const links = computed<NavLink[]>(() => {
   const base: NavLink[] = [
     { label: 'Dashboard', to: dashboardTo, exact: true, icon: 'home' },
     { label: 'Sessions', to: '/sessions', icon: 'calendar' },
+    { label: 'Tournaments', to: '/tournaments', icon: 'trophy' },
   ]
 
   if (role === 'admin') {

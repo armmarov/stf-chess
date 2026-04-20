@@ -39,8 +39,10 @@ model User {
   attendancesMarked Attendance[]    @relation("MarkedBy")
   payments          Payment[]       @relation("StudentPayment")
   paymentsReviewed  Payment[]       @relation("ReviewedBy")
-  appConfigsUpdated AppConfig[]     @relation("ConfigUpdatedBy")
-  notifications     Notification[]
+  appConfigsUpdated   AppConfig[]           @relation("ConfigUpdatedBy")
+  notifications       Notification[]
+  tournamentsCreated  Tournament[]          @relation("TournamentCreatedBy")
+  tournamentInterests TournamentInterest[]  @relation("TournamentInterest")
 
   @@map("users")
 }
@@ -138,6 +140,7 @@ enum NotificationType {
   paid_cash
   receipt_uploaded
   payment_reviewed
+  tournament_added
 }
 
 model Notification {
@@ -156,4 +159,36 @@ model Notification {
   @@index([userId, readAt])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+model Tournament {
+  id               String    @id @default(uuid())
+  name             String    @db.VarChar(200)
+  description      String
+  imagePath        String?   @map("image_path")
+  registrationLink String?   @map("registration_link")
+  startDate        DateTime? @map("start_date") @db.Date
+  endDate          DateTime? @map("end_date") @db.Date
+  createdById      String    @map("created_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  createdBy User                @relation("TournamentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  interests TournamentInterest[]
+
+  @@index([startDate])
+  @@map("tournaments")
+}
+
+model TournamentInterest {
+  id           String   @id @default(uuid())
+  tournamentId String   @map("tournament_id")
+  studentId    String   @map("student_id")
+  confirmedAt  DateTime @default(now()) @map("confirmed_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  student    User       @relation("TournamentInterest", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, studentId])
+  @@map("tournament_interests")
 }

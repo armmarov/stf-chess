@@ -16,6 +16,7 @@ Emissions are **fire-and-forget**: a failure to write a notification record neve
 | `paid_cash` | Bulk attendance mark — student transitions to `paidCash=true` | Affected students only |
 | `receipt_uploaded` | `POST /payments` — student uploads receipt | All active admin + teacher staff (excluding the uploader) |
 | `payment_reviewed` | `PATCH /payments/:id/review` — receipt approved or rejected | The student who uploaded the receipt |
+| `tournament_added` | `POST /tournaments` — new tournament created | All active students |
 
 **Transition-only emissions:** `attendance_marked_present` and `paid_cash` fire only when the value flips from false → true. Re-marking an already-present or already-cash-paid student does not emit a duplicate notification.
 

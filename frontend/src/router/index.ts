@@ -66,6 +66,16 @@ const router = createRouter({
           name: 'admin-fee-config',
           component: () => import('@/pages/admin/config/FeeConfigPage.vue'),
         },
+        {
+          path: 'tournaments/new',
+          name: 'admin-tournament-new',
+          component: () => import('@/pages/admin/tournaments/TournamentFormPage.vue'),
+        },
+        {
+          path: 'tournaments/:id/edit',
+          name: 'admin-tournament-edit',
+          component: () => import('@/pages/admin/tournaments/TournamentFormPage.vue'),
+        },
       ],
     },
     {
@@ -171,6 +181,22 @@ const router = createRouter({
           path: 'review/:id',
           name: 'payment-review-detail',
           component: () => import('@/pages/payments/PaymentReviewDetailPage.vue'),
+        },
+      ],
+    },
+    {
+      path: '/tournaments',
+      component: () => import('@/layouts/AppLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'tournament-list',
+          component: () => import('@/pages/tournaments/TournamentListPage.vue'),
+        },
+        {
+          path: ':id',
+          name: 'tournament-detail',
+          component: () => import('@/pages/tournaments/TournamentDetailPage.vue'),
         },
       ],
     },
