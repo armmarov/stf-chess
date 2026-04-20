@@ -26,6 +26,51 @@ async function toggleInterest(id: string, currentValue: boolean | undefined) {
 }
 
 onMounted(() => tournamentStore.fetchList())
+
+// Split tournaments into upcoming (today or later) and past.
+// Cutoff prefers endDate; falls back to startDate. Tournaments with no
+// dates at all are treated as upcoming (undated).
+function cutoffDate(t: { startDate: string | null; endDate: string | null }): string | null {
+  return t.endDate ?? t.startDate
+}
+
+function todayIso(): string {
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+const upcoming = computed(() => {
+  const today = todayIso()
+  return tournamentStore.list
+    .filter((t) => {
+      const c = cutoffDate(t)
+      return c === null || c.slice(0, 10) >= today
+    })
+    .slice()
+    .sort((a, b) => {
+      const aKey = a.startDate ?? a.endDate ?? '\uffff' // undated → bottom
+      const bKey = b.startDate ?? b.endDate ?? '\uffff'
+      return aKey.localeCompare(bKey) // asc
+    })
+})
+
+const past = computed(() => {
+  const today = todayIso()
+  return tournamentStore.list
+    .filter((t) => {
+      const c = cutoffDate(t)
+      return c !== null && c.slice(0, 10) < today
+    })
+    .slice()
+    .sort((a, b) => {
+      const aKey = a.endDate ?? a.startDate ?? ''
+      const bKey = b.endDate ?? b.startDate ?? ''
+      return bKey.localeCompare(aKey) // desc
+    })
+})
 </script>
 
 <template>
@@ -49,61 +94,99 @@ onMounted(() => tournamentStore.fetchList())
       No tournaments found.
     </div>
 
-    <div v-else class="flex flex-col gap-3">
-      <div
-        v-for="t in tournamentStore.list"
-        :key="t.id"
-        class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:border-indigo-300 transition-colors"
-        @click="router.push(`/tournaments/${t.id}`)"
-      >
-        <!-- Thumbnail -->
-        <img
-          v-if="t.hasImage"
-          :src="tournamentImageUrl(t.id)"
-          :alt="t.name"
-          class="w-full h-36 object-cover"
-        />
-
-        <div class="p-4">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex-1 min-w-0">
-              <p class="font-semibold text-gray-900 text-sm">{{ t.name }}</p>
-              <div class="flex flex-col items-start gap-1 mt-1.5">
-                <span class="inline-flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5 font-medium">
-                  <AppIcon name="calendar" class="h-3 w-3 shrink-0" />
-                  {{ formatDate(t.startDate) }}
-                </span>
-                <span
-                  v-if="t.place"
-                  class="inline-flex items-center gap-1.5 text-xs text-gray-600 max-w-full"
-                >
-                  <AppIcon name="map-pin" class="h-3 w-3 shrink-0 text-gray-400" />
-                  <span class="truncate">{{ t.place }}</span>
-                </span>
+    <template v-else>
+      <!-- Upcoming -->
+      <section v-if="upcoming.length > 0">
+        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Upcoming</h2>
+        <div class="flex flex-col gap-3">
+          <div
+            v-for="t in upcoming"
+            :key="t.id"
+            class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:border-indigo-300 transition-colors"
+            @click="router.push(`/tournaments/${t.id}`)"
+          >
+            <img
+              v-if="t.hasImage"
+              :src="tournamentImageUrl(t.id)"
+              :alt="t.name"
+              class="w-full h-36 object-cover"
+            />
+            <div class="p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-gray-900 text-sm">{{ t.name }}</p>
+                  <div class="flex flex-col items-start gap-1 mt-1.5">
+                    <span class="inline-flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5 font-medium">
+                      <AppIcon name="calendar" class="h-3 w-3 shrink-0" />
+                      {{ formatDate(t.startDate) }}
+                    </span>
+                    <span v-if="t.place" class="inline-flex items-center gap-1.5 text-xs text-gray-600 max-w-full">
+                      <AppIcon name="map-pin" class="h-3 w-3 shrink-0 text-gray-400" />
+                      <span class="truncate">{{ t.place }}</span>
+                    </span>
+                  </div>
+                  <p v-if="t.description" class="text-sm text-gray-500 mt-1.5 line-clamp-2">{{ t.description }}</p>
+                </div>
+                <span class="text-gray-400 text-sm shrink-0 mt-0.5">→</span>
               </div>
-              <p v-if="t.description" class="text-sm text-gray-500 mt-1.5 line-clamp-2">{{ t.description }}</p>
+              <div class="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-100">
+                <span class="text-xs text-gray-400">{{ t.interestCount }} interested</span>
+                <label v-if="isStudent" class="flex items-center gap-1.5 cursor-pointer select-none" @click.stop>
+                  <input
+                    type="checkbox"
+                    :checked="t.myInterested"
+                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    @change="toggleInterest(t.id, t.myInterested)"
+                  />
+                  <span class="text-xs text-gray-600">I want to join</span>
+                </label>
+              </div>
             </div>
-            <span class="text-gray-400 text-sm shrink-0 mt-0.5">→</span>
-          </div>
-
-          <div class="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-100">
-            <span class="text-xs text-gray-400">{{ t.interestCount }} interested</span>
-            <label
-              v-if="isStudent"
-              class="flex items-center gap-1.5 cursor-pointer select-none"
-              @click.stop
-            >
-              <input
-                type="checkbox"
-                :checked="t.myInterested"
-                class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                @change="toggleInterest(t.id, t.myInterested)"
-              />
-              <span class="text-xs text-gray-600">I want to join</span>
-            </label>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+
+      <!-- Past -->
+      <section v-if="past.length > 0" :class="upcoming.length > 0 ? 'mt-6' : ''">
+        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Past</h2>
+        <div class="flex flex-col gap-3">
+          <div
+            v-for="t in past"
+            :key="t.id"
+            class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:border-indigo-300 transition-colors opacity-75"
+            @click="router.push(`/tournaments/${t.id}`)"
+          >
+            <img
+              v-if="t.hasImage"
+              :src="tournamentImageUrl(t.id)"
+              :alt="t.name"
+              class="w-full h-36 object-cover grayscale"
+            />
+            <div class="p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-gray-900 text-sm">{{ t.name }}</p>
+                  <div class="flex flex-col items-start gap-1 mt-1.5">
+                    <span class="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5 font-medium">
+                      <AppIcon name="calendar" class="h-3 w-3 shrink-0" />
+                      {{ formatDate(t.startDate) }}
+                    </span>
+                    <span v-if="t.place" class="inline-flex items-center gap-1.5 text-xs text-gray-600 max-w-full">
+                      <AppIcon name="map-pin" class="h-3 w-3 shrink-0 text-gray-400" />
+                      <span class="truncate">{{ t.place }}</span>
+                    </span>
+                  </div>
+                  <p v-if="t.description" class="text-sm text-gray-500 mt-1.5 line-clamp-2">{{ t.description }}</p>
+                </div>
+                <span class="text-gray-400 text-sm shrink-0 mt-0.5">→</span>
+              </div>
+              <div class="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-100">
+                <span class="text-xs text-gray-400">{{ t.interestCount }} joined</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </template>
   </div>
 </template>
