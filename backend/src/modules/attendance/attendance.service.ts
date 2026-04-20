@@ -102,7 +102,7 @@ export async function getAttendanceRoster(sessionId: string) {
   const [students, preAttendances, attendances, payments] = await Promise.all([
     prisma.user.findMany({
       where: { role: 'student', isActive: true },
-      select: { id: true, name: true, username: true },
+      select: { id: true, name: true, username: true, className: true },
       orderBy: { name: 'asc' },
     }),
     prisma.preAttendance.findMany({

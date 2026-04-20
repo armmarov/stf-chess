@@ -147,8 +147,14 @@ onMounted(async () => {
         >
           <!-- ── Mobile card (<sm) ── -->
           <div class="sm:hidden px-4 py-3 flex flex-col gap-y-2">
-            <!-- Line 1: name -->
-            <span class="text-sm font-medium text-gray-900 truncate">{{ entry.student.name }}</span>
+            <!-- Line 1: name + class -->
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-sm font-medium text-gray-900 truncate">{{ entry.student.name }}</span>
+              <span
+                v-if="entry.student.className"
+                class="inline-block rounded-full bg-gray-100 text-gray-700 text-[10px] px-2 py-0.5 font-medium shrink-0"
+              >{{ entry.student.className }}</span>
+            </div>
 
             <!-- Line 2: ATTENDANCE section label + Pre-att + Present checkboxes -->
             <div class="flex items-center gap-3 flex-wrap">
@@ -212,7 +218,13 @@ onMounted(async () => {
 
           <!-- ── Desktop grid row (≥sm) ── -->
           <div class="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-2 px-4 py-3 items-center">
-            <span class="text-sm font-medium text-gray-900 truncate">{{ entry.student.name }}</span>
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-sm font-medium text-gray-900 truncate">{{ entry.student.name }}</span>
+              <span
+                v-if="entry.student.className"
+                class="inline-block rounded-full bg-gray-100 text-gray-700 text-[10px] px-2 py-0.5 font-medium shrink-0"
+              >{{ entry.student.className }}</span>
+            </div>
             <label class="w-12 flex justify-center cursor-pointer">
               <input
                 v-if="localState[entry.student.id]"
