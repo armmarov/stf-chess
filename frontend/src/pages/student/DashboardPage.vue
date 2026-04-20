@@ -40,7 +40,7 @@ onMounted(() => dashboardStore.fetchStats())
         to="/sessions"
         class="flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-4 hover:border-indigo-300 transition-colors"
       >
-        <span class="font-medium text-gray-900 text-sm">Upcoming Sessions</span>
+        <span class="font-medium text-gray-900 text-sm">Coaching Sessions</span>
         <span class="text-xs text-gray-500">View sessions and confirm your attendance</span>
       </RouterLink>
       <RouterLink

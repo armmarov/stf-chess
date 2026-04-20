@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const preAttendanceSchema = z.object({
   confirmed: z.boolean(),
+  studentId: z.string().uuid().optional(),
 });
 
 export const markAttendanceSchema = z.object({

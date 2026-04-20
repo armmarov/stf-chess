@@ -13,8 +13,9 @@ async function getActiveSession(sessionId: string) {
 
 export async function togglePreAttendance(
   sessionId: string,
-  studentId: string,
+  targetStudentId: string,
   confirmed: boolean,
+  actor: { id: string; role: string; name: string },
 ) {
   const session = await getActiveSession(sessionId);
 
@@ -22,52 +23,69 @@ export async function togglePreAttendance(
     throw new AppError(409, 'Cannot pre-attend a cancelled session');
   }
 
-  const cutoff = new Date(session.startTime.getTime() - PRE_ATTENDANCE_CUTOFF_MS);
-  if (new Date() >= cutoff) {
-    throw new AppError(409, 'Pre-attendance cutoff has passed');
+  // Validate target is an active student
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetStudentId },
+    select: { id: true, name: true, role: true, isActive: true },
+  });
+  if (!targetUser || !targetUser.isActive || targetUser.role !== 'student') {
+    throw new AppError(400, 'Target must be an active student');
+  }
+
+  // Cutoff applies only when a student acts on themselves; staff can bypass
+  if (actor.role === 'student') {
+    const cutoff = new Date(session.startTime.getTime() - PRE_ATTENDANCE_CUTOFF_MS);
+    if (new Date() >= cutoff) {
+      throw new AppError(409, 'Pre-attendance cutoff has passed');
+    }
   }
 
   if (confirmed) {
     const isNew = !(await prisma.preAttendance.findUnique({
-      where: { sessionId_studentId: { sessionId, studentId } },
+      where: { sessionId_studentId: { sessionId, studentId: targetStudentId } },
     }));
 
     const record = await prisma.preAttendance.upsert({
-      where: { sessionId_studentId: { sessionId, studentId } },
-      create: { sessionId, studentId, confirmedAt: new Date() },
+      where: { sessionId_studentId: { sessionId, studentId: targetStudentId } },
+      create: { sessionId, studentId: targetStudentId, confirmedAt: new Date() },
       update: { confirmedAt: new Date() },
     });
 
-    // Fire-and-forget: notify all active teachers + admins (only on first confirmation)
     if (isNew) {
-      Promise.all([
-        prisma.user.findUnique({ where: { id: studentId }, select: { name: true } }),
-        prisma.user.findMany({
-          where: { role: { in: ['admin', 'teacher'] }, isActive: true },
-          select: { id: true },
-        }),
-      ])
-        .then(([student, staff]) => {
-          if (!student) return;
-          return createManyNotifications(
-            staff.map((s) => s.id).filter((id) => id !== studentId),
-            'pre_attendance_set',
-            'Student confirmed attendance',
-            `${student.name} will attend ${session.date.toISOString().slice(0, 10)}`,
-            `/sessions/${sessionId}`,
-          );
-        })
-        .catch((err) => console.error('[notifications] togglePreAttendance emission failed:', err));
+      if (actor.role === 'student') {
+        // Student confirmed own → notify staff
+        prisma.user
+          .findMany({ where: { role: { in: ['admin', 'teacher'] }, isActive: true }, select: { id: true } })
+          .then((staff) =>
+            createManyNotifications(
+              staff.map((s) => s.id).filter((id) => id !== actor.id),
+              'pre_attendance_set',
+              'Student confirmed attendance',
+              `${targetUser.name} will attend ${session.date.toISOString().slice(0, 10)}`,
+              `/sessions/${sessionId}`,
+            ),
+          )
+          .catch((err) => console.error('[notifications] togglePreAttendance emission failed:', err));
+      } else {
+        // Staff acting on behalf → notify the target student only
+        createManyNotifications(
+          [targetStudentId],
+          'pre_attendance_set',
+          'Pre-attendance confirmed',
+          `Pre-attendance confirmed by ${actor.name}`,
+          `/sessions/${sessionId}`,
+        ).catch((err) => console.error('[notifications] togglePreAttendance emission failed:', err));
+      }
     }
 
     return { sessionId: record.sessionId, studentId: record.studentId, confirmedAt: record.confirmedAt };
   } else {
     const existing = await prisma.preAttendance.findUnique({
-      where: { sessionId_studentId: { sessionId, studentId } },
+      where: { sessionId_studentId: { sessionId, studentId: targetStudentId } },
     });
     if (existing) {
       await prisma.preAttendance.delete({
-        where: { sessionId_studentId: { sessionId, studentId } },
+        where: { sessionId_studentId: { sessionId, studentId: targetStudentId } },
       });
     }
     return null;

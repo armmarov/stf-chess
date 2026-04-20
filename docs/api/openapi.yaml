@@ -443,6 +443,10 @@ components:
         confirmed:
           type: boolean
           description: true to set pre-attendance; false to remove it.
+        studentId:
+          type: string
+          format: uuid
+          description: "Staff only (admin/teacher). Target student to act on behalf of. Omit to act as self (student callers only)."
 
     PreAttendanceResponse:
       type: object
@@ -1341,15 +1345,21 @@ paths:
       operationId: togglePreAttendance
       tags: [Attendance]
       description: |
-        Student sets or removes their pre-attendance for a session.
+        Sets or removes pre-attendance for a session. Allowed roles: student, teacher, admin.
+
         - `confirmed: true` — upsert a PreAttendance record.
         - `confirmed: false` — delete the PreAttendance record if it exists.
 
+        **Acting on self vs on behalf:**
+        - `studentId` omitted → acts on the requester. Requester must be a student — else 400 `"studentId is required when acting on behalf"`.
+        - `studentId` present → acts on behalf of that student. Requester must be admin or teacher — else 403 `"Only staff can set pre-attendance on behalf of others"`.
+
         **Rules:**
-        - Session must exist (404 if not).
+        - Session must exist (404).
         - Session must not be cancelled (409).
-        - Current time must be at least 10 minutes before `session.startTime` (409 if cutoff passed).
-        - Only students may call this endpoint (403 for other roles).
+        - Target must be an active student — else 400 `"Target must be an active student"`.
+        - **Cutoff (10 min before `startTime`):** enforced for student self-action only; waived when staff act on behalf.
+        - Coach role: 403.
       parameters:
         - name: id
           in: path
@@ -1372,11 +1382,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/PreAttendanceResponse'
         '400':
-          description: Request body failed Zod validation (missing or wrong-type `confirmed` field)
+          description: |
+            Validation error. Possible messages:
+            - Missing/invalid `confirmed` field (Zod)
+            - `"studentId is required when acting on behalf"` — non-student omitted `studentId`
+            - `"Target must be an active student"` — `studentId` refers to non-student or inactive user
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              examples:
+                missing_student_id:
+                  value:
+                    error: studentId is required when acting on behalf
+                invalid_target:
+                  value:
+                    error: Target must be an active student
         '401':
           description: Not authenticated
           content:
@@ -1384,13 +1405,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Role is not student
+          description: |
+            Two distinct cases:
+            - Coach role (any request) → `"Forbidden"`
+            - Student supplying `studentId` (acting on behalf) → `"Only staff can set pre-attendance on behalf of others"`
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              example:
-                error: Forbidden
+              examples:
+                forbidden:
+                  value:
+                    error: Forbidden
+                student_on_behalf:
+                  value:
+                    error: Only staff can set pre-attendance on behalf of others
         '404':
           description: Session not found
           content:
@@ -1402,8 +1431,8 @@ paths:
         '409':
           description: |
             Two distinct cases:
-            - Session is cancelled → `{"error": "Cannot pre-attend a cancelled session"}`
-            - 10-minute cutoff has passed → `{"error": "Pre-attendance cutoff has passed"}`
+            - Session is cancelled → `{"error": "Cannot pre-attend a cancelled session"}` (all roles)
+            - 10-minute cutoff has passed → `{"error": "Pre-attendance cutoff has passed"}` (students only; waived for staff)
           content:
             application/json:
               schema:

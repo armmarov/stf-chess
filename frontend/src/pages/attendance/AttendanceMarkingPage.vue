@@ -3,6 +3,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAttendanceStore } from '@/stores/attendanceStore'
 import { useToastStore } from '@/stores/toastStore'
+import { setPreAttendance } from '@/api/attendance'
 import { toHHMM, formatDate } from '@/utils/format'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -16,7 +17,7 @@ const sessionId = route.params.id as string
 const saving = ref(false)
 
 // Local mutable copy of checkboxes keyed by studentId
-const localState = reactive<Record<string, { present: boolean; paidCash: boolean }>>({})
+const localState = reactive<Record<string, { present: boolean; paidCash: boolean; preAttended: boolean }>>({})
 
 const rosterData = computed(() => attendanceStore.rosterBySession[sessionId])
 const session = computed(() => rosterData.value?.session)
@@ -35,7 +36,19 @@ function initLocalState() {
       present: entry.present,
       // Force-uncheck cash if student already has an approved online payment
       paidCash: entry.onlinePaymentStatus === 'approved' ? false : entry.paidCash,
+      preAttended: entry.preAttended,
     }
+  }
+}
+
+async function handlePreAttendanceToggle(studentId: string, confirmed: boolean) {
+  const old = localState[studentId].preAttended
+  localState[studentId].preAttended = confirmed
+  try {
+    await setPreAttendance(sessionId, confirmed, studentId)
+  } catch {
+    localState[studentId].preAttended = old
+    toastStore.show('Failed to update pre-attendance.', 'error')
   }
 }
 
@@ -134,19 +147,22 @@ onMounted(async () => {
         >
           <!-- ── Mobile card (<sm) ── -->
           <div class="sm:hidden px-4 py-3 flex flex-col gap-y-2">
-            <!-- Line 1: name + pre-att dot -->
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-gray-900 truncate mr-2">{{ entry.student.name }}</span>
-              <span
-                class="inline-block h-2 w-2 rounded-full shrink-0"
-                :class="entry.preAttended ? 'bg-green-500' : 'bg-gray-200'"
-                :title="entry.preAttended ? 'Pre-attended' : 'Not pre-attended'"
-              />
-            </div>
+            <!-- Line 1: name -->
+            <span class="text-sm font-medium text-gray-900 truncate">{{ entry.student.name }}</span>
 
-            <!-- Line 2: ATTENDANCE section label + Present checkbox -->
-            <div class="flex items-center gap-2">
+            <!-- Line 2: ATTENDANCE section label + Pre-att + Present checkboxes -->
+            <div class="flex items-center gap-3 flex-wrap">
               <span class="w-20 shrink-0 text-xs font-medium text-gray-400 uppercase tracking-wide">Attendance</span>
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  v-if="localState[entry.student.id]"
+                  type="checkbox"
+                  :checked="localState[entry.student.id].preAttended"
+                  class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  @change="(e) => handlePreAttendanceToggle(entry.student.id, (e.target as HTMLInputElement).checked)"
+                />
+                <span class="text-xs text-gray-600">Pre-att.</span>
+              </label>
               <label class="flex items-center gap-1.5 cursor-pointer">
                 <input
                   v-if="localState[entry.student.id]"
@@ -197,13 +213,15 @@ onMounted(async () => {
           <!-- ── Desktop grid row (≥sm) ── -->
           <div class="hidden sm:grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-2 px-4 py-3 items-center">
             <span class="text-sm font-medium text-gray-900 truncate">{{ entry.student.name }}</span>
-            <span class="w-12 flex justify-center">
-              <span
-                class="inline-block h-2 w-2 rounded-full"
-                :class="entry.preAttended ? 'bg-green-500' : 'bg-gray-200'"
-                :title="entry.preAttended ? 'Pre-attended' : 'Not pre-attended'"
+            <label class="w-12 flex justify-center cursor-pointer">
+              <input
+                v-if="localState[entry.student.id]"
+                type="checkbox"
+                :checked="localState[entry.student.id].preAttended"
+                class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                @change="(e) => handlePreAttendanceToggle(entry.student.id, (e.target as HTMLInputElement).checked)"
               />
-            </span>
+            </label>
             <label class="w-14 flex justify-center cursor-pointer">
               <input
                 v-if="localState[entry.student.id]"

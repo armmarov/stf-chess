@@ -22,28 +22,51 @@ describe('POST /api/sessions/:id/pre-attendance', () => {
     });
   });
 
-  describe('403 — wrong role', () => {
-    it('403 for teacher', async () => {
+  describe('400 — non-student without studentId', () => {
+    it('teacher without studentId → 400', async () => {
       const { agent } = await loginAs('teacher');
       const teacher = await createUser('teacher');
       const session = await futureSessionInMinutes(teacher.id, 60);
       const res = await agent.post(URL(session.id)).send({ confirmed: true });
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/studentId is required/i);
     });
 
-    it('403 for admin', async () => {
+    it('admin without studentId → 400', async () => {
       const { agent } = await loginAs('admin');
       const admin = await createUser('admin');
       const session = await futureSessionInMinutes(admin.id, 60);
       const res = await agent.post(URL(session.id)).send({ confirmed: true });
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/studentId is required/i);
     });
 
-    it('403 for coach', async () => {
+    it('coach without studentId → 400', async () => {
       const { agent } = await loginAs('coach');
       const teacher = await createUser('teacher');
       const session = await futureSessionInMinutes(teacher.id, 60);
       const res = await agent.post(URL(session.id)).send({ confirmed: true });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('403 — non-staff with studentId', () => {
+    it('student sending studentId of another student → 403', async () => {
+      const teacher = await createUser('teacher');
+      const session = await futureSessionInMinutes(teacher.id, 60);
+      const target = await createUser('student');
+      const { agent } = await loginAs('student');
+      const res = await agent.post(URL(session.id)).send({ confirmed: true, studentId: target.id });
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatch(/only staff/i);
+    });
+
+    it('coach sending studentId → 403', async () => {
+      const teacher = await createUser('teacher');
+      const session = await futureSessionInMinutes(teacher.id, 60);
+      const target = await createUser('student');
+      const { agent } = await loginAs('coach');
+      const res = await agent.post(URL(session.id)).send({ confirmed: true, studentId: target.id });
       expect(res.status).toBe(403);
     });
   });
@@ -170,6 +193,74 @@ describe('POST /api/sessions/:id/pre-attendance', () => {
     });
   });
 
+  describe('200 — staff acting on behalf', () => {
+    it('teacher with valid studentId → 200, preAttendance row created for student', async () => {
+      const { agent } = await loginAs('teacher');
+      const student = await createUser('student');
+      const teacher2 = await createUser('teacher');
+      const session = await futureSessionInMinutes(teacher2.id, 60);
+
+      const res = await agent.post(URL(session.id)).send({ confirmed: true, studentId: student.id });
+
+      expect(res.status).toBe(200);
+      expect(res.body.preAttendance.studentId).toBe(student.id);
+
+      const row = await prisma.preAttendance.findUnique({
+        where: { sessionId_studentId: { sessionId: session.id, studentId: student.id } },
+      });
+      expect(row).not.toBeNull();
+    });
+
+    it('admin with valid studentId after cutoff → 200 (cutoff bypassed for staff)', async () => {
+      const teacher = await createUser('teacher');
+      const session = await futureSessionInMinutes(teacher.id, 5);
+      const student = await createUser('student');
+      const { agent } = await loginAs('admin');
+
+      const res = await agent.post(URL(session.id)).send({ confirmed: true, studentId: student.id });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('teacher deconfirms on behalf of student → null returned, row deleted', async () => {
+      const { agent } = await loginAs('teacher');
+      const student = await createUser('student');
+      const teacher2 = await createUser('teacher');
+      const session = await futureSessionInMinutes(teacher2.id, 60);
+      await createPreAttendance(session.id, student.id);
+
+      const res = await agent.post(URL(session.id)).send({ confirmed: false, studentId: student.id });
+
+      expect(res.status).toBe(200);
+      expect(res.body.preAttendance).toBeNull();
+    });
+  });
+
+  describe('400 — invalid target', () => {
+    it('studentId targeting a teacher → 400', async () => {
+      const { agent } = await loginAs('admin');
+      const teacher = await createUser('teacher');
+      const session = await futureSessionInMinutes(teacher.id, 60);
+
+      const res = await agent.post(URL(session.id)).send({ confirmed: true, studentId: teacher.id });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/active student/i);
+    });
+
+    it('studentId targeting an inactive student → 400', async () => {
+      const { agent } = await loginAs('admin');
+      const teacher = await createUser('teacher');
+      const session = await futureSessionInMinutes(teacher.id, 60);
+      const inactive = await createUser('student', { isActive: false });
+
+      const res = await agent.post(URL(session.id)).send({ confirmed: true, studentId: inactive.id });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/active student/i);
+    });
+  });
+
   describe('notifications — pre_attendance_set emission', () => {
     it('confirmed=true (first time) → all active teachers + admins notified, student excluded', async () => {
       const teacher = await createUser('teacher');
@@ -204,6 +295,26 @@ describe('POST /api/sessions/:id/pre-attendance', () => {
       const countAfterSecond = await prisma.notification.count({ where: { type: 'pre_attendance_set' } });
 
       expect(countAfterSecond).toBe(countAfterFirst);
+    });
+
+    it('staff acting on behalf → target student notified, no staff fan-out', async () => {
+      const { agent, user: teacher } = await loginAs('teacher');
+      const admin = await createUser('admin');
+      const student = await createUser('student');
+      const teacher2 = await createUser('teacher');
+      const session = await futureSessionInMinutes(teacher2.id, 60);
+
+      await agent.post(URL(session.id)).send({ confirmed: true, studentId: student.id });
+      await drainEvents();
+
+      const notifications = await prisma.notification.findMany({
+        where: { type: 'pre_attendance_set' },
+      });
+      const userIds = notifications.map((n) => n.userId);
+      expect(userIds).toContain(student.id);
+      expect(userIds).not.toContain(teacher.id);
+      expect(userIds).not.toContain(admin.id);
+      expect(userIds).not.toContain(teacher2.id);
     });
 
     it('confirmed=false → no pre_attendance_set notification emitted', async () => {

@@ -47,10 +47,13 @@ export interface MarkEntry {
 export async function setPreAttendance(
   sessionId: string,
   confirmed: boolean,
+  studentId?: string,
 ): Promise<PreAttendanceResponse> {
+  const body: { confirmed: boolean; studentId?: string } = { confirmed }
+  if (studentId) body.studentId = studentId
   const { data } = await apiClient.post<PreAttendanceResponse>(
     `/sessions/${sessionId}/pre-attendance`,
-    { confirmed },
+    body,
   )
   return data
 }

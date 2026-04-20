@@ -13,7 +13,8 @@ These are independent records. A student can pre-attend and not show up (Attenda
 
 | Action | Admin | Teacher | Coach | Student |
 |--------|:-----:|:-------:|:-----:|:-------:|
-| Toggle pre-attendance | | | | ✓ |
+| Toggle own pre-attendance | | | | ✓ |
+| Toggle pre-attendance on behalf of student | ✓ | ✓ | | |
 | View attendance roster | ✓ | ✓ | | |
 | Bulk mark attendance + cash | ✓ | ✓ | | |
 
@@ -21,35 +22,42 @@ These are independent records. A student can pre-attend and not show up (Attenda
 
 ```mermaid
 sequenceDiagram
-    participant S as Student
+    participant C as Caller (student or staff)
     participant API as Express API
     participant DB as PostgreSQL
 
-    S->>API: POST /api/sessions/:id/pre-attendance { confirmed: true }
+    C->>API: POST /api/sessions/:id/pre-attendance { confirmed: true, studentId?: uuid }
     API->>DB: SELECT session WHERE id = ?
     alt session not found
-        API-->>S: 404 Session not found
+        API-->>C: 404 Session not found
     else session is cancelled
-        API-->>S: 409 Cannot pre-attend a cancelled session
-    else cutoff passed (now ≥ startTime - 10 min)
-        API-->>S: 409 Pre-attendance cutoff has passed
+        API-->>C: 409 Cannot pre-attend a cancelled session
+    else student omits studentId / staff provides studentId
+        note over API: resolve target student
+    else cutoff passed AND caller is student
+        API-->>C: 409 Pre-attendance cutoff has passed
     else valid
         API->>DB: UPSERT pre_attendances (sessionId, studentId)
-        API-->>S: 200 { preAttendance: { sessionId, studentId, confirmedAt } }
+        API-->>C: 200 { preAttendance: { sessionId, studentId, confirmedAt } }
     end
 
-    S->>API: POST /api/sessions/:id/pre-attendance { confirmed: false }
+    C->>API: POST /api/sessions/:id/pre-attendance { confirmed: false }
     API->>DB: DELETE pre_attendances WHERE sessionId AND studentId
-    API-->>S: 200 { preAttendance: null }
+    API-->>C: 200 { preAttendance: null }
 ```
 
 ### Pre-Attendance Rules
 
-- **Who:** Students only (403 for all other roles).
-- **Cutoff:** Toggle is locked **10 minutes before** `session.startTime` (FR-21). After the cutoff, both setting and removing pre-attendance return 409.
-- **Cancelled sessions:** 409 regardless of cutoff.
+- **Who:** Student, teacher, admin. Coach → 403.
+- **Self vs on-behalf:**
+  - `studentId` omitted → acts as self; caller must be a student (non-student without `studentId` → 400 `"studentId is required when acting on behalf"`).
+  - `studentId` present → acts on behalf; caller must be admin or teacher (student with `studentId` → 403 `"Only staff can set pre-attendance on behalf of others"`).
+  - Target must be an active student → else 400 `"Target must be an active student"`.
+- **Cutoff:** Toggle locked **10 minutes before** `session.startTime` (FR-21) for student self-actions only. **Waived** when admin/teacher act on behalf.
+- **Cancelled sessions:** 409 for all roles regardless of cutoff.
 - **Toggle pattern:** `confirmed: true` upserts; `confirmed: false` deletes (hard delete — no soft delete on pre-attendance).
-- **Idempotent:** Setting `confirmed: true` when a record already exists is safe (upsert). Setting `confirmed: false` when no record exists is also safe (no-op, returns `preAttendance: null`).
+- **Idempotent:** Upsert on `confirmed: true`; no-op on `confirmed: false` when no record exists.
+- **Notifications:** Student self-confirm → teachers/admins notified. Staff on-behalf → target student notified; no staff fan-out.
 
 ## Attendance Marking Flow
 
