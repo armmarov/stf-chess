@@ -3,6 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useToastStore } from '@/stores/toastStore'
+import { CLASS_VALUES } from '@/utils/classNames'
+import type { ClassName } from '@/utils/classNames'
 import AppButton from '@/components/AppButton.vue'
 import AppInput from '@/components/AppInput.vue'
 
@@ -15,6 +17,7 @@ const id = route.params.id as string
 
 const name = ref('')
 const phone = ref('')
+const className = ref<ClassName | ''>('')
 const username = ref('')
 
 const submitting = ref(false)
@@ -28,6 +31,7 @@ onMounted(async () => {
     if (!u) { notFound.value = true; return }
     name.value = u.name
     phone.value = u.phone ?? ''
+    className.value = u.className ?? ''
     username.value = u.username
   } catch (e: unknown) {
     const status = (e as { response?: { status?: number } })?.response?.status
@@ -53,6 +57,7 @@ async function submit() {
     await userStore.updateUser(id, {
       name: name.value.trim(),
       phone: phone.value.trim() || null,
+      className: className.value || null,
     })
     toastStore.show('Student updated.', 'success')
     router.push('/teacher/students')
@@ -105,6 +110,16 @@ async function submit() {
 
       <AppInput v-model="name" label="Name" placeholder="Full name" required autocomplete="name" />
       <AppInput v-model="phone" label="Phone" placeholder="+60xxxxxxxxx" autocomplete="tel" />
+      <div class="flex flex-col gap-1">
+        <label class="text-xs font-medium text-gray-700">Class (optional)</label>
+        <select
+          v-model="className"
+          class="block w-full rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+        >
+          <option value="">— Not set —</option>
+          <option v-for="c in CLASS_VALUES" :key="c" :value="c">{{ c }}</option>
+        </select>
+      </div>
 
       <p v-if="error" role="alert" class="text-xs text-red-600">{{ error }}</p>
 

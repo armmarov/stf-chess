@@ -27,6 +27,12 @@ components:
       enum: [admin, teacher, coach, student]
       description: User role in the system
 
+    ClassName:
+      type: string
+      nullable: true
+      enum: ['1S','1T','1F','1J','1B','2S','2T','2F','2J','2B','3S','3T','3F','3J','3B','4S','4T','4F','4J','4B','5S','5T','5F','5J','5B']
+      description: Student class/group identifier. Null if unassigned. Invalid values return 400.
+
     PaymentStatus:
       type: string
       enum: [pending, approved, rejected]
@@ -84,6 +90,8 @@ components:
           nullable: true
         isActive:
           type: boolean
+        className:
+          $ref: '#/components/schemas/ClassName'
         createdAt:
           type: string
           format: date-time
@@ -123,15 +131,18 @@ components:
         phone:
           type: string
           description: "Optional. 7–20 chars; digits, spaces, +, -, (, ) allowed."
+        className:
+          $ref: '#/components/schemas/ClassName'
 
     UpdateUserRequest:
       type: object
       description: |
         Updatable fields depend on caller role:
-        - **Admin**: `name`, `phone`, `isActive`, `role`
-        - **Teacher**: only `isActive: false` on a student target
-        - **Self** (any role): `name`, `phone` only (not `isActive`, not `role`)
-        `username` is never updatable — including it returns 400 `"Username cannot be changed"`.
+        - **Admin**: `name`, `phone`, `isActive`, `role`, `username`, `className` (any target)
+        - **Teacher**: `name`, `phone`, `isActive`, `className` on a student target or own profile
+        - **Self** (student/coach): `name`, `phone`, `className` on own profile only
+        Non-admin callers including `username` receive 403 `"Only admin can change username"`.
+        Changing a username does **not** invalidate the affected user's JWT (token uses `sub` = user ID).
       properties:
         name:
           type: string
@@ -142,7 +153,15 @@ components:
           type: boolean
         role:
           $ref: '#/components/schemas/Role'
-          description: Admin only. Changing role of other callers returns 403.
+          description: Admin only. Non-admin callers receive 403.
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: "^[a-z0-9_]+$"
+          description: "Admin only. 3–32 chars; lowercase letters, digits, underscores. Must be unique — duplicate returns 409."
+        className:
+          $ref: '#/components/schemas/ClassName'
 
     SetPasswordRequest:
       type: object
@@ -995,10 +1014,10 @@ paths:
       tags: [Users]
       description: |
         Partially updates a user. Allowed fields depend on caller role:
-        - **Admin**: `name`, `phone`, `isActive`, `role`.
-        - **Teacher**: `name`, `phone`, `isActive` on a student target only. Any other field or non-student target returns 403.
-        - **Self** (any role): `name`, `phone` only.
-        `username` is never updatable — including it returns 400.
+        - **Admin**: `name`, `phone`, `isActive`, `role`, `username`, `className` (any target).
+        - **Teacher**: `name`, `phone`, `isActive`, `className` on student targets or own profile.
+        - **Self** (student/coach): `name`, `phone`, `className` on own profile only.
+        Non-admin callers including `username` receive 403. Changing a username does not invalidate the affected user's JWT.
       parameters:
         - name: id
           in: path
@@ -1020,13 +1039,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserResponse'
         '400':
-          description: Validation error, or `username` present in body
+          description: Zod validation error (invalid field values)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-              example:
-                error: Username cannot be changed
         '401':
           description: Not authenticated
           content:
@@ -1040,6 +1057,7 @@ paths:
             - Teacher accessing non-student → `"Forbidden"`
             - Teacher setting a disallowed field (`role`, `username`, etc.) on a student → `"Teachers can only update students' name, phone, or isActive"`
             - Self or teacher-self setting `isActive` or `role` → `"You can only update your own name and phone"`
+            - Non-admin including `username` → `"Only admin can change username"`
           content:
             application/json:
               schema:
@@ -1054,12 +1072,23 @@ paths:
                 self_name_phone_only:
                   value:
                     error: You can only update your own name and phone
+                non_admin_username:
+                  value:
+                    error: Only admin can change username
         '404':
           description: User not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Username already taken
 
   /users/{id}/password:
     post:

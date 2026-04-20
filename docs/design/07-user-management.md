@@ -15,7 +15,7 @@
 | Re-activate user (`isActive: true`) | ✓ | | |
 | Reset any user's password | ✓ | | |
 
-**Username is immutable** — it cannot be changed after creation. Including `username` in a `PATCH` body returns 400.
+**Username is admin-only** — only admin may change a username via `PATCH /users/:id`. Non-admin callers including `username` receive 403 `"Only admin can change username"`. Changing a username does **not** invalidate the affected user's JWT (token uses `sub` = user ID).
 
 ## Active vs Inactive Users
 
@@ -63,17 +63,18 @@ User logs in with that password
 - 3–32 characters.
 - Lowercase letters, digits, and underscores only (`^[a-z0-9_]{3,32}$`).
 - Must be unique — duplicate returns 409 `"Username already taken"`.
-- **Immutable** after creation.
+- Changeable by admin only (`PATCH /users/:id`). Non-admin callers receive 403.
 
 ## Field Update Rules by Role
 
-| Field | Admin | Teacher (on student) | Self |
-|-------|:-----:|:--------------------:|:----:|
-| `name` | ✓ | ✓ (student only) | ✓ |
-| `phone` | ✓ | ✓ (student only) | ✓ |
+| Field | Admin | Teacher (on student or self) | Self (student/coach) |
+|-------|:-----:|:----------------------------:|:--------------------:|
+| `name` | ✓ | ✓ | ✓ |
+| `phone` | ✓ | ✓ | ✓ |
+| `className` | ✓ | ✓ | ✓ |
 | `isActive` | ✓ (any value) | ✓ (student only) | ✗ (403) |
 | `role` | ✓ | ✗ (403) | ✗ (403) |
-| `username` | ✗ (400 `"Username cannot be changed"`) | ✗ | ✗ |
+| `username` | ✓ (409 if taken) | ✗ (403 `"Only admin can change username"`) | ✗ (403) |
 | `password` | via `POST /users/:id/password` | | |
 
 ## API Reference

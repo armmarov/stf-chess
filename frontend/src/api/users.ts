@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type { Role } from '@/stores/authStore'
+import type { ClassName } from '@/utils/classNames'
 
 export interface User {
   id: string
@@ -7,6 +8,7 @@ export interface User {
   username: string
   role: Role
   phone: string | null
+  className: ClassName | null
   isActive: boolean
   createdAt: string
 }
@@ -22,12 +24,15 @@ export interface CreateUserBody {
   password: string
   role: Role
   phone?: string
+  className?: ClassName
 }
 
 export interface UpdateUserBody {
   name?: string
+  username?: string
   phone?: string | null
   isActive?: boolean
+  className?: ClassName | null
 }
 
 export async function listUsers(query?: ListUsersQuery): Promise<User[]> {

@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useToastStore } from '@/stores/toastStore'
+import { CLASS_VALUES } from '@/utils/classNames'
+import type { ClassName } from '@/utils/classNames'
 import AppButton from '@/components/AppButton.vue'
 import AppInput from '@/components/AppInput.vue'
 
@@ -14,6 +16,7 @@ const name = ref('')
 const username = ref('')
 const password = ref('')
 const phone = ref('')
+const className = ref<ClassName | ''>('')
 
 const submitting = ref(false)
 const error = ref('')
@@ -37,6 +40,7 @@ async function submit() {
       password: password.value,
       role: 'student',
       phone: phone.value.trim() || undefined,
+      className: className.value || undefined,
     })
     toastStore.show('Student created.', 'success')
     router.push('/teacher/students')
@@ -78,6 +82,16 @@ async function submit() {
         autocomplete="new-password"
       />
       <AppInput v-model="phone" label="Phone" placeholder="+60xxxxxxxxx" autocomplete="tel" />
+      <div class="flex flex-col gap-1">
+        <label class="text-xs font-medium text-gray-700">Class (optional)</label>
+        <select
+          v-model="className"
+          class="block w-full rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+        >
+          <option value="">— Not set —</option>
+          <option v-for="c in CLASS_VALUES" :key="c" :value="c">{{ c }}</option>
+        </select>
+      </div>
 
       <p v-if="error" role="alert" class="text-xs text-red-600">{{ error }}</p>
 

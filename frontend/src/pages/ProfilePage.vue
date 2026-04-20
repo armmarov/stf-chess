@@ -4,6 +4,9 @@ import { useAuthStore } from '@/stores/authStore'
 import { useUserStore } from '@/stores/userStore'
 import { useToastStore } from '@/stores/toastStore'
 import { changePassword } from '@/api/auth'
+import { CLASS_VALUES } from '@/utils/classNames'
+import type { ClassName } from '@/utils/classNames'
+import type { UpdateUserBody } from '@/api/users'
 import AppInput from '@/components/AppInput.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -17,10 +20,12 @@ const saving = ref(false)
 
 const name = ref('')
 const phone = ref('')
+const className = ref<ClassName | ''>('')
 
 function resetForm() {
   name.value = user.value?.name ?? auth.user?.name ?? ''
   phone.value = user.value?.phone ?? ''
+  className.value = user.value?.className ?? ''
 }
 
 watch(user, (u) => {
@@ -42,10 +47,12 @@ async function handleSave() {
   if (!auth.user || !name.value.trim()) return
   saving.value = true
   try {
-    const patch: { name?: string; phone?: string | null } = {}
+    const patch: UpdateUserBody = {}
     if (name.value.trim() !== user.value?.name) patch.name = name.value.trim()
     const trimmedPhone = phone.value.trim() || null
     if (trimmedPhone !== (user.value?.phone ?? null)) patch.phone = trimmedPhone
+    const newClass = className.value || null
+    if (newClass !== (user.value?.className ?? null)) patch.className = newClass
 
     if (Object.keys(patch).length > 0) {
       await userStore.updateUser(auth.user.id, patch)
@@ -140,6 +147,16 @@ async function handleChangePassword() {
           autocomplete="tel"
           type="tel"
         />
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium text-gray-700">Class (optional)</label>
+          <select
+            v-model="className"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          >
+            <option value="">— Not set —</option>
+            <option v-for="c in CLASS_VALUES" :key="c" :value="c">{{ c }}</option>
+          </select>
+        </div>
       </div>
 
       <div class="flex gap-2 pt-1">

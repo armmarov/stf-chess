@@ -120,6 +120,7 @@ async function toggleActive(id: string, currentActive: boolean) {
         <div class="min-w-0">
           <p class="font-medium text-gray-900 text-sm truncate">{{ student.name }}</p>
           <p class="text-xs text-gray-500 mt-0.5 truncate">@{{ student.username }}</p>
+          <p v-if="student.className" class="text-xs text-gray-400 mt-0.5 truncate">{{ student.className }}</p>
           <span v-if="student.phone" class="text-xs mt-0.5">
             <AppWhatsAppLink :phone="student.phone" />
           </span>

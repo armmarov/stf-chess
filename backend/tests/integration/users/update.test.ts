@@ -18,13 +18,52 @@ describe('PATCH /api/users/:id', () => {
     });
   });
 
-  describe('400 — username change rejected', () => {
-    it('400 when username is present in body', async () => {
+  describe('200 — admin username change', () => {
+    it('admin sets valid username → 200, username updated', async () => {
       const target = await createUser('student');
       const { agent } = await loginAs('admin');
-      const res = await agent.patch(URL(target.id)).send({ username: 'newname' });
+      const res = await agent.patch(URL(target.id)).send({ username: 'newvalid_name' });
+      expect(res.status).toBe(200);
+      expect(res.body.user.username).toBe('newvalid_name');
+    });
+
+    it('admin sets username already taken → 409', async () => {
+      await createUser('student', { username: 'taken_name' });
+      const target = await createUser('student');
+      const { agent } = await loginAs('admin');
+      const res = await agent.patch(URL(target.id)).send({ username: 'taken_name' });
+      expect(res.status).toBe(409);
+    });
+
+    it('admin sets username with invalid format (uppercase) → 400', async () => {
+      const target = await createUser('student');
+      const { agent } = await loginAs('admin');
+      const res = await agent.patch(URL(target.id)).send({ username: 'InvalidName' });
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/username cannot be changed/i);
+    });
+
+    it('admin sets username with special chars → 400', async () => {
+      const target = await createUser('student');
+      const { agent } = await loginAs('admin');
+      const res = await agent.patch(URL(target.id)).send({ username: 'bad name!' });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('403 — non-admin username change rejected', () => {
+    it('teacher sends { username } → 403', async () => {
+      const target = await createUser('student');
+      const { agent } = await loginAs('teacher');
+      const res = await agent.patch(URL(target.id)).send({ username: 'newname' });
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatch(/only admin can change username/i);
+    });
+
+    it('student sends { username } on own profile → 403', async () => {
+      const { agent, user } = await loginAs('student');
+      const res = await agent.patch(URL(user.id)).send({ username: 'newname' });
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatch(/only admin can change username/i);
     });
   });
 
@@ -188,6 +227,46 @@ describe('PATCH /api/users/:id', () => {
       const { agent, user } = await loginAs('coach');
       const res = await agent.patch(URL(user.id)).send({ isActive: false });
       expect(res.status).toBe(403);
+    });
+  });
+
+  describe('className — update', () => {
+    it('admin sets className on a student → 200', async () => {
+      const student = await createUser('student');
+      const { agent } = await loginAs('admin');
+      const res = await agent.patch(URL(student.id)).send({ className: '3F' });
+      expect(res.status).toBe(200);
+      expect(res.body.user.className).toBe('3F');
+    });
+
+    it('teacher sets className on a student → 200', async () => {
+      const student = await createUser('student');
+      const { agent } = await loginAs('teacher');
+      const res = await agent.patch(URL(student.id)).send({ className: '2T' });
+      expect(res.status).toBe(200);
+      expect(res.body.user.className).toBe('2T');
+    });
+
+    it('student sets own className → 200', async () => {
+      const { agent, user } = await loginAs('student');
+      const res = await agent.patch(URL(user.id)).send({ className: '4J' });
+      expect(res.status).toBe(200);
+      expect(res.body.user.className).toBe('4J');
+    });
+
+    it('admin sets className to null → 200, className null', async () => {
+      const student = await createUser('student');
+      const { agent } = await loginAs('admin');
+      const res = await agent.patch(URL(student.id)).send({ className: null });
+      expect(res.status).toBe(200);
+      expect(res.body.user.className).toBeNull();
+    });
+
+    it('400 for invalid className value on PATCH', async () => {
+      const student = await createUser('student');
+      const { agent } = await loginAs('admin');
+      const res = await agent.patch(URL(student.id)).send({ className: 'bad' });
+      expect(res.status).toBe(400);
     });
   });
 

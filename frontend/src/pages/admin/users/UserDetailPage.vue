@@ -162,6 +162,13 @@ const roleBadge: Record<string, string> = {
           </div>
           <div>
             <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="hash" class="h-3.5 w-3.5" />
+              Class
+            </dt>
+            <dd class="text-gray-900 mt-0.5">{{ user.className ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
               <AppIcon name="calendar" class="h-3.5 w-3.5" />
               Member since
             </dt>

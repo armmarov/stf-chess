@@ -70,11 +70,6 @@ export async function patch(req: Request, res: Response, next: NextFunction): Pr
     const { id } = req.params;
     const requester = req.user!;
 
-    // Reject any username change attempt
-    if ('username' in req.body) {
-      next(new AppError(400, 'Username cannot be changed')); return;
-    }
-
     const parsed = updateUserSchema.safeParse(req.body);
     if (!parsed.success) { next(parsed.error); return; }
 
@@ -82,28 +77,34 @@ export async function patch(req: Request, res: Response, next: NextFunction): Pr
     const data = parsed.data;
 
     if (requester.role === 'admin') {
-      // admin: any field
+      // admin: any field including username
     } else if (requester.role === 'teacher') {
+      if (data.username !== undefined) {
+        next(new AppError(403, 'Only admin can change username')); return;
+      }
       if (isSelf) {
         // teacher updating self — treat as self update rules
         if (data.isActive !== undefined || data.role !== undefined) {
-          next(new AppError(403, 'You can only update your own name and phone')); return;
+          next(new AppError(403, 'You can only update your own name, phone, and className')); return;
         }
       } else {
         // teacher updating a student: name, phone, isActive allowed
         const target = await getUser(id);
         if (target.role !== 'student') { next(new AppError(403, 'Forbidden')); return; }
         const disallowedKeys = Object.keys(data).filter(
-          (k) => !['name', 'phone', 'isActive'].includes(k),
+          (k) => !['name', 'phone', 'isActive', 'className'].includes(k),
         );
         if (disallowedKeys.length > 0) {
           next(new AppError(403, "Teachers can only update students' name, phone, or isActive")); return;
         }
       }
     } else if (isSelf) {
-      // self: only name and phone
+      // self: name, phone, className
+      if (data.username !== undefined) {
+        next(new AppError(403, 'Only admin can change username')); return;
+      }
       if (data.isActive !== undefined || data.role !== undefined) {
-        next(new AppError(403, 'You can only update your own name and phone')); return;
+        next(new AppError(403, 'You can only update your own name, phone, and className')); return;
       }
     } else {
       next(new AppError(403, 'Forbidden')); return;

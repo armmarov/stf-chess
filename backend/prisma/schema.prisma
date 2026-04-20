@@ -28,6 +28,7 @@ model User {
   role         Role
   phone        String?
   isActive     Boolean  @default(true) @map("is_active")
+  className    String?  @map("class_name") @db.VarChar(64)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

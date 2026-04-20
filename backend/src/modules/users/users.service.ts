@@ -14,6 +14,7 @@ const USER_SELECT = {
   role: true,
   phone: true,
   isActive: true,
+  className: true,
   createdAt: true,
 } as const;
 
@@ -64,6 +65,7 @@ export async function createUser(data: CreateUserInput) {
         passwordHash,
         role: data.role,
         phone: data.phone ?? null,
+        className: data.className ?? null,
       },
       select: USER_SELECT,
     });

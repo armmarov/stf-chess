@@ -165,6 +165,28 @@ describe('POST /api/users', () => {
     });
   });
 
+  describe('className — create', () => {
+    it('201 with valid className stored and returned', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent.post(URL).send(validBody({ className: '1S' }));
+      expect(res.status).toBe(201);
+      expect(res.body.user.className).toBe('1S');
+    });
+
+    it('201 without className → className is null', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent.post(URL).send(validBody());
+      expect(res.status).toBe(201);
+      expect(res.body.user.className).toBeNull();
+    });
+
+    it('400 for invalid className value', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent.post(URL).send(validBody({ className: '6X' }));
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe('passwordHash never in response', () => {
     it('passwordHash absent from created user response', async () => {
       const { agent } = await loginAs('admin');
