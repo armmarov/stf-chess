@@ -119,10 +119,7 @@ async function handleChangePassword() {
     <div v-else class="bg-white rounded-lg border border-gray-200 p-4 flex flex-col gap-4">
       <!-- Read-only: username + role -->
       <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-1.5 text-sm text-gray-500">
-          <AppIcon name="hash" class="h-4 w-4 shrink-0 text-gray-400" />
-          <span>{{ auth.user?.username }}</span>
-        </div>
+        <div class="text-sm text-gray-500">@{{ auth.user?.username }}</div>
         <span
           class="inline-flex items-center gap-0.5 rounded-full text-xs px-2 py-0.5 font-medium capitalize"
           :class="roleBadge[auth.user?.role ?? ''] ?? 'bg-gray-100 text-gray-600'"

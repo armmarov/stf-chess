@@ -103,10 +103,7 @@ function openInNewTab() {
               <AppIcon name="user" class="h-4 w-4 text-indigo-500 shrink-0" />
               {{ payment.student.name }}
             </h1>
-            <p class="text-sm text-gray-500 mt-0.5 flex items-center gap-1">
-              <AppIcon name="hash" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
-              {{ payment.student.username }}
-            </p>
+            <p class="text-sm text-gray-500 mt-0.5">@{{ payment.student.username }}</p>
           </div>
           <span
             class="inline-flex items-center gap-0.5 rounded-full text-xs px-2 py-0.5 font-medium capitalize shrink-0"

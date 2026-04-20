@@ -95,10 +95,7 @@ onMounted(load)
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
             <p class="font-medium text-gray-900 text-sm truncate">{{ student.name }}</p>
-            <p class="text-xs text-gray-500 mt-0.5 flex items-center gap-1 truncate">
-              <AppIcon name="hash" class="h-3 w-3 shrink-0 text-gray-400" />
-              @{{ student.username }}
-            </p>
+            <p class="text-xs text-gray-500 mt-0.5 truncate">@{{ student.username }}</p>
             <span v-if="student.phone" class="text-xs mt-0.5 inline-block" @click.stop>
               <AppWhatsAppLink :phone="student.phone" />
             </span>

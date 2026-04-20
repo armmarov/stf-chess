@@ -127,10 +127,7 @@ const roleBadge: Record<string, string> = {
               <AppIcon name="user" class="h-4 w-4 text-indigo-500 shrink-0" />
               <span class="truncate">{{ user.name }}</span>
             </h1>
-            <p class="text-sm text-gray-500 mt-0.5 flex items-center gap-1">
-              <AppIcon name="hash" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
-              {{ user.username }}
-            </p>
+            <p class="text-sm text-gray-500 mt-0.5">@{{ user.username }}</p>
           </div>
           <div class="flex flex-col items-end gap-1 shrink-0">
             <span

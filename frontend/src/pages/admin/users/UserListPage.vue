@@ -112,13 +112,15 @@ const roleBadge: Record<Role, string> = {
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
             <p class="font-medium text-gray-900 text-sm truncate">{{ user.name }}</p>
-            <p class="text-xs text-gray-500 mt-0.5 flex items-center gap-1 truncate">
-              <AppIcon name="hash" class="h-3 w-3 shrink-0 text-gray-400" />
-              @{{ user.username }}
-            </p>
-            <p v-if="user.className" class="text-xs text-gray-400 mt-0.5 truncate">{{ user.className }}</p>
+            <p class="text-xs text-gray-500 mt-0.5 truncate">@{{ user.username }}</p>
           </div>
-          <div class="flex items-center gap-2 shrink-0">
+          <div class="flex flex-wrap items-center justify-end gap-2 shrink-0">
+            <span
+              v-if="user.className"
+              class="inline-block rounded-full text-xs px-2 py-0.5 font-medium bg-gray-100 text-gray-700"
+            >
+              {{ user.className }}
+            </span>
             <span
               class="inline-block rounded-full text-xs px-2 py-0.5 font-medium capitalize"
               :class="roleBadge[user.role]"

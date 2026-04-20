@@ -21,23 +21,23 @@ const links = computed<NavLink[]>(() => {
   const dashboardTo = auth.user ? ROLE_HOME[auth.user.role] : '/login'
 
   const base: NavLink[] = [
-    { label: 'Dashboard', to: dashboardTo, exact: true },
-    { label: 'Sessions', to: '/sessions' },
+    { label: 'Dashboard', to: dashboardTo, exact: true, icon: 'home' },
+    { label: 'Sessions', to: '/sessions', icon: 'calendar' },
   ]
 
   if (role === 'admin') {
     base.push(
-      { label: 'Users', to: '/admin/users' },
-      { label: 'Payments', to: '/payments/review' },
-      { label: 'Fee', to: '/admin/config/fee' },
+      { label: 'Users', to: '/admin/users', icon: 'users' },
+      { label: 'Payments', to: '/payments/review', icon: 'dollar' },
+      { label: 'Fee', to: '/admin/config/fee', icon: 'settings' },
     )
   } else if (role === 'teacher') {
     base.push(
-      { label: 'Students', to: '/teacher/students' },
-      { label: 'Payments', to: '/payments/review' },
+      { label: 'Students', to: '/teacher/students', icon: 'users' },
+      { label: 'Payments', to: '/payments/review', icon: 'dollar' },
     )
   } else if (role === 'student') {
-    base.push({ label: 'Payments', to: '/student/payments' })
+    base.push({ label: 'Payments', to: '/student/payments', icon: 'dollar' })
   }
 
   base.push({ label: 'Profile', to: '/profile', icon: 'user-circle' })

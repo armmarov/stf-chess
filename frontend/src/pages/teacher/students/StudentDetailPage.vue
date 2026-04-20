@@ -68,10 +68,7 @@ async function toggleActive() {
               <AppIcon name="user" class="h-4 w-4 text-indigo-500 shrink-0" />
               <span class="truncate">{{ student.name }}</span>
             </h1>
-            <p class="text-sm text-gray-500 mt-0.5 flex items-center gap-1">
-              <AppIcon name="hash" class="h-3.5 w-3.5 text-gray-400 shrink-0" />
-              {{ student.username }}
-            </p>
+            <p class="text-sm text-gray-500 mt-0.5">@{{ student.username }}</p>
           </div>
           <span
             class="inline-flex items-center gap-0.5 rounded-full text-xs px-2 py-0.5 font-medium shrink-0"
