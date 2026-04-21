@@ -52,10 +52,20 @@ const sideToMove = computed(() => {
 
 const totalPlies = computed(() => verboseMoves.value.length)
 
+// chess.js v1 can't handle multiple {...} comments per move (lichess export),
+// strip comments + variations before parsing — main line only.
+function sanitizePgn(pgn: string): string {
+  return pgn
+    .replace(/\{[^}]*\}/g, '')
+    .replace(/\([^()]*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function loadPgn(pgn: string) {
   try {
     const chess = new Chess()
-    chess.loadPgn(pgn)
+    chess.loadPgn(sanitizePgn(pgn))
     const moves = chess.history({ verbose: true }) as VerboseMove[]
     const fens: string[] = [new Chess().fen()]
     const replay = new Chess()

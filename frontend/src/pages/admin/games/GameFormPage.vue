@@ -44,7 +44,14 @@ function validatePgn(): boolean {
     return true
   }
   try {
-    new Chess().loadPgn(pgn.value)
+    // Strip {comments} and (variations) — chess.js v1 can't handle
+    // multiple comment blocks per move (lichess broadcast exports).
+    const cleaned = pgn.value
+      .replace(/\{[^}]*\}/g, '')
+      .replace(/\([^()]*\)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    new Chess().loadPgn(cleaned)
     pgnError.value = ''
     return true
   } catch (e) {

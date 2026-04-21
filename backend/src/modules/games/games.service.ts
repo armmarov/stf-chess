@@ -3,10 +3,24 @@ import prisma from '../../utils/prisma';
 import { AppError } from '../../middleware/errorHandler';
 import { CreateGameInput, UpdateGameInput } from './games.validators';
 
+/**
+ * chess.js v1 chokes on multiple {...} comment blocks per move (common in
+ * Lichess broadcast exports with %eval, annotation text, and %clk as three
+ * separate comments). Strip all PGN comments and parenthesised variations
+ * before parsing — we only care that the move list is legal.
+ */
+function sanitizePgnForParse(pgn: string): string {
+  return pgn
+    .replace(/\{[^}]*\}/g, '')          // remove {comment} blocks
+    .replace(/\([^()]*\)/g, '')         // remove (variations) — main line only
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function validatePgn(pgn: string): { ok: true; moveCount: number } | { ok: false; reason: string } {
   try {
     const c = new Chess();
-    c.loadPgn(pgn, { strict: false });
+    c.loadPgn(sanitizePgnForParse(pgn), { strict: false });
     if (c.history().length === 0) return { ok: false, reason: 'PGN contains no moves' };
     return { ok: true, moveCount: c.history().length };
   } catch (e) {
