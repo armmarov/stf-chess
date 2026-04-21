@@ -66,6 +66,23 @@ describe('GET /api/sessions/:id/attendance', () => {
       );
       expect(entry).toBeDefined();
       expect(entry.student.id).toBe(student.id);
+      expect(entry.student).toHaveProperty('className');
+      expect(entry.student).toHaveProperty('phone');
+    });
+
+    it('roster student entries include className and phone fields', async () => {
+      const teacher = await createUser('teacher');
+      await createUser('student');
+      const session = await createSessionRecord(teacher.id);
+      const { agent } = await loginAs('teacher');
+
+      const res = await agent.get(URL(session.id));
+
+      expect(res.status).toBe(200);
+      for (const entry of res.body.roster) {
+        expect(entry.student).toHaveProperty('className');
+        expect(entry.student).toHaveProperty('phone');
+      }
     });
 
     it('inactive students are excluded from roster', async () => {

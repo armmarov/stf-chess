@@ -195,6 +195,12 @@ const router = createRouter({
           meta: { roles: ['admin', 'teacher'] },
           component: () => import('@/pages/attendance/AttendanceMarkingPage.vue'),
         },
+        {
+          path: ':id/unpaid',
+          name: 'session-unpaid',
+          meta: { roles: ['admin', 'teacher'] },
+          component: () => import('@/pages/sessions/SessionUnpaidPage.vue'),
+        },
       ],
     },
     {

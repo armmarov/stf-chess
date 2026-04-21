@@ -531,6 +531,15 @@ onUnmounted(() => {
           Mark Attendance
         </AppButton>
 
+        <AppButton
+          variant="secondary"
+          class="w-full"
+          @click="router.push(`/sessions/${id}/unpaid`)"
+        >
+          <AppIcon name="dollar" class="h-4 w-4 text-red-500" />
+          View Unpaid
+        </AppButton>
+
         <div v-if="!session.isCancelled" class="flex gap-3">
           <AppButton @click="router.push(`/sessions/${id}/edit`)">Edit</AppButton>
           <AppButton variant="danger" :disabled="cancelling" @click="cancelSession">

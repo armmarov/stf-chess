@@ -389,7 +389,7 @@ components:
     StudentSummary:
       type: object
       required: [id, name, username]
-      description: Student projection embedded in attendance roster entries.
+      description: Minimal student projection (id, name, username). Used in payment embeds.
       properties:
         id:
           type: string
@@ -398,6 +398,20 @@ components:
           type: string
         username:
           type: string
+
+    RosterStudentSummary:
+      allOf:
+        - $ref: '#/components/schemas/StudentSummary'
+        - type: object
+          required: [className, phone]
+          description: Extended student projection returned in attendance roster entries. Adds className and phone.
+          properties:
+            className:
+              $ref: '#/components/schemas/ClassName'
+            phone:
+              type: string
+              nullable: true
+              description: Student's phone number.
 
     SessionSummary:
       type: object
@@ -463,7 +477,7 @@ components:
       required: [student, preAttended, present, paidCash, onlinePaymentStatus]
       properties:
         student:
-          $ref: '#/components/schemas/StudentSummary'
+          $ref: '#/components/schemas/RosterStudentSummary'
         preAttended:
           type: boolean
           description: Whether the student confirmed pre-attendance.

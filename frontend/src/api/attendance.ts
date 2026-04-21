@@ -15,6 +15,7 @@ export interface RosterStudent {
   name: string
   username: string
   className: string | null
+  phone: string | null
 }
 
 export interface RosterEntry {
