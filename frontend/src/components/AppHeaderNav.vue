@@ -128,7 +128,7 @@ function handleNotifClick(n: Notification) {
         <!-- Desktop nav -->
         <nav
           ref="desktopNavRef"
-          class="hidden sm:flex items-center gap-4 text-sm"
+          class="hidden nav:flex items-center gap-4 text-sm"
           aria-label="Main navigation"
         >
           <template v-for="item in navItems" :key="item.label">
@@ -272,7 +272,7 @@ function handleNotifClick(n: Notification) {
         </div>
 
         <!-- Mobile burger + dropdown -->
-        <div ref="mobileNav" class="relative sm:hidden">
+        <div ref="mobileNav" class="relative nav:hidden">
           <button
             class="p-1.5 rounded text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             aria-label="Menu"
