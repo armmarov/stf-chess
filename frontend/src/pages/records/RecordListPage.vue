@@ -117,12 +117,17 @@ onMounted(async () => {
         @click="canEditRecord(record) ? router.push(`/records/${record.id}/edit`) : undefined"
       >
         <!-- Top row: student name + className badge -->
-        <div class="flex items-start justify-between gap-2 mb-2">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="font-semibold text-sm text-gray-900">{{ record.student.name }}</span>
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
+            <span
+              class="font-semibold text-sm text-gray-900 truncate"
+              :title="record.student.name"
+            >
+              {{ record.student.name }}
+            </span>
             <span
               v-if="record.student.className"
-              class="text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5"
+              class="shrink-0 text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5"
             >
               {{ record.student.className }}
             </span>
