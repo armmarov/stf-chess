@@ -62,10 +62,12 @@ async function loadList() {
 watch(selectedStudentId, loadList)
 
 onMounted(async () => {
-  await Promise.all([
-    loadList(),
-    userStore.fetchUsers({ role: 'student' }),
-  ])
+  const tasks: Promise<unknown>[] = [loadList()]
+  // Only admin / teacher may list users; students get 403.
+  if (auth.user?.role === 'admin' || auth.user?.role === 'teacher') {
+    tasks.push(userStore.fetchUsers({ role: 'student' }))
+  }
+  await Promise.all(tasks)
 })
 </script>
 
