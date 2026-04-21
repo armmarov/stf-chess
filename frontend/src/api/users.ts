@@ -11,6 +11,7 @@ export interface User {
   className: ClassName | null
   isActive: boolean
   createdAt: string
+  lastLoginAt: string | null
 }
 
 export interface ListUsersQuery {

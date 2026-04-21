@@ -32,6 +32,8 @@ export async function loginUser(
     throw Object.assign(new Error('Account is deactivated'), { statusCode: 403 });
   }
 
+  await prisma.user.update({ where: { id: record.id }, data: { lastLoginAt: new Date() } });
+
   const token = jwt.sign(
     { sub: record.id, role: record.role } satisfies JwtPayload,
     env.JWT_SECRET,

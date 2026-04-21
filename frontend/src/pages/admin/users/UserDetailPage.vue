@@ -5,6 +5,7 @@ import { useUserStore } from '@/stores/userStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { useConfirm } from '@/composables/useConfirm'
+import { formatDate, timeAgo } from '@/utils/format'
 import AppButton from '@/components/AppButton.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppModal from '@/components/AppModal.vue'
@@ -170,6 +171,19 @@ const roleBadge: Record<string, string> = {
               Member since
             </dt>
             <dd class="text-gray-900 mt-0.5">{{ new Date(user.createdAt).toLocaleDateString() }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="clock" class="h-3.5 w-3.5" />
+              Last login
+            </dt>
+            <dd class="mt-0.5">
+              <span v-if="user.lastLoginAt" class="text-gray-900">
+                {{ formatDate(user.lastLoginAt) }} · {{ new Date(user.lastLoginAt).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }) }}
+                <span class="text-gray-400 ml-1">({{ timeAgo(user.lastLoginAt) }})</span>
+              </span>
+              <span v-else class="text-gray-400">Never</span>
+            </dd>
           </div>
         </dl>
       </div>

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { Role } from '@/stores/authStore'
+import { timeAgo } from '@/utils/format'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppWhatsAppLink from '@/components/AppWhatsAppLink.vue'
@@ -137,6 +138,9 @@ const roleBadge: Record<Role, string> = {
         </div>
         <p v-if="user.phone" class="text-xs mt-1">
           <AppWhatsAppLink :phone="user.phone" />
+        </p>
+        <p class="text-xs text-gray-400 mt-1">
+          {{ user.lastLoginAt ? `Last seen: ${timeAgo(user.lastLoginAt)}` : 'Never logged in' }}
         </p>
       </div>
     </div>
