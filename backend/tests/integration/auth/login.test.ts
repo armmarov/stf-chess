@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { app } from '../../helpers/app';
-import { createUser } from '../../helpers/auth';
-import { resetDb } from '../../helpers/db';
+import { createUser, loginAs } from '../../helpers/auth';
+import { prisma, resetDb } from '../../helpers/db';
 
 const URL = '/api/auth/login';
 
@@ -35,6 +35,19 @@ describe('POST /api/auth/login', () => {
       const token = cookies.find((c) => c.startsWith('stf_token='));
       expect(token).toBeDefined();
       expect(token).toMatch(/HttpOnly/i);
+    });
+
+    it('sets lastLoginAt on the user record in DB', async () => {
+      const user = await createUser('student');
+      const before = new Date();
+
+      await request(app)
+        .post(URL)
+        .send({ username: user.username, password: 'Test1234!' });
+
+      const row = await prisma.user.findUnique({ where: { id: user.id } });
+      expect(row!.lastLoginAt).not.toBeNull();
+      expect(row!.lastLoginAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
     });
 
     it('works for each role type', async () => {

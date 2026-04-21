@@ -120,4 +120,28 @@ describe('GET /api/users/:id', () => {
       expect(res.body.user.passwordHash).toBeUndefined();
     });
   });
+
+  describe('lastLoginAt field', () => {
+    it('lastLoginAt is null for user who has never logged in', async () => {
+      const student = await createUser('student');
+      const { agent } = await loginAs('admin');
+      const res = await agent.get(URL(student.id));
+      expect(res.status).toBe(200);
+      expect(res.body.user).toHaveProperty('lastLoginAt');
+      expect(res.body.user.lastLoginAt).toBeNull();
+    });
+
+    it('lastLoginAt is an ISO datetime string after user logs in', async () => {
+      const before = new Date();
+      const { agent: adminAgent } = await loginAs('admin');
+      const { user: student } = await loginAs('student');
+
+      const res = await adminAgent.get(URL(student.id));
+
+      expect(res.status).toBe(200);
+      expect(res.body.user.lastLoginAt).not.toBeNull();
+      const parsed = new Date(res.body.user.lastLoginAt);
+      expect(parsed.getTime()).toBeGreaterThanOrEqual(before.getTime());
+    });
+  });
 });

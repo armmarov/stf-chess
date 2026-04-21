@@ -73,7 +73,7 @@ components:
 
     UserDetail:
       type: object
-      required: [id, name, username, role, isActive, createdAt]
+      required: [id, name, username, role, isActive, createdAt, lastLoginAt]
       description: Full user object returned by user-management endpoints. Never includes passwordHash.
       properties:
         id:
@@ -95,6 +95,11 @@ components:
         createdAt:
           type: string
           format: date-time
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the most recent successful login. Null for users who have never logged in since the migration.
 
     UserListResponse:
       type: object
@@ -2078,7 +2083,7 @@ paths:
       tags: [Auth]
       description: |
         Authenticates a user with username + password.
-        On success, sets an httpOnly cookie named `stf_token` containing the JWT.
+        On success, sets an httpOnly cookie named `stf_token` containing the JWT, and stamps `lastLoginAt` server-side before issuing the token.
         Rate-limited to 20 requests per 15 minutes per IP.
       requestBody:
         required: true

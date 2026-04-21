@@ -72,10 +72,28 @@ export function useStockfish() {
     searchDepth.value = 0
     engineError.value = false
 
+    // Up-front environment check — surfaces the real cause in the console
+    // instead of a generic "unavailable" state.
+    if (typeof self !== 'undefined') {
+      // eslint-disable-next-line no-console
+      console.info('[stockfish] crossOriginIsolated =', (self as unknown as { crossOriginIsolated?: boolean }).crossOriginIsolated)
+      // eslint-disable-next-line no-console
+      console.info('[stockfish] SharedArrayBuffer =', typeof SharedArrayBuffer)
+    }
+    if (typeof SharedArrayBuffer === 'undefined') {
+      // eslint-disable-next-line no-console
+      console.warn('[stockfish] SharedArrayBuffer is not available — page is not cross-origin isolated. Check response headers COOP/COEP/CORP.')
+      engineError.value = true
+      analyzing.value = false
+      return
+    }
+
     let eng: SF
     try {
       eng = await ensureEngine()
-    } catch {
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[stockfish] engine init failed:', err)
       engineError.value = true
       analyzing.value = false
       return
