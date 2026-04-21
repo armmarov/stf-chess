@@ -36,23 +36,23 @@ export type UpdateRecordBody = Partial<Omit<CreateRecordBody, 'studentId'>>
 export async function listRecords(opts?: { studentId?: string }): Promise<CompetitionRecord[]> {
   const params: Record<string, string> = {}
   if (opts?.studentId) params.studentId = opts.studentId
-  const { data } = await apiClient.get<CompetitionRecord[]>('/records', { params })
-  return data
+  const { data } = await apiClient.get<{ records: CompetitionRecord[] }>('/records', { params })
+  return data.records
 }
 
 export async function getRecord(id: string): Promise<CompetitionRecord> {
-  const { data } = await apiClient.get<CompetitionRecord>(`/records/${id}`)
-  return data
+  const { data } = await apiClient.get<{ record: CompetitionRecord }>(`/records/${id}`)
+  return data.record
 }
 
 export async function createRecord(body: CreateRecordBody): Promise<CompetitionRecord> {
-  const { data } = await apiClient.post<CompetitionRecord>('/records', body)
-  return data
+  const { data } = await apiClient.post<{ record: CompetitionRecord }>('/records', body)
+  return data.record
 }
 
 export async function updateRecord(id: string, patch: UpdateRecordBody): Promise<CompetitionRecord> {
-  const { data } = await apiClient.patch<CompetitionRecord>(`/records/${id}`, patch)
-  return data
+  const { data } = await apiClient.patch<{ record: CompetitionRecord }>(`/records/${id}`, patch)
+  return data.record
 }
 
 export async function deleteRecord(id: string): Promise<void> {
