@@ -285,6 +285,38 @@ const router = createRouter({
       ],
     },
     {
+      path: '/puzzle',
+      component: () => import('@/layouts/AppLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'daily-puzzle',
+          component: () => import('@/pages/puzzles/DailyPuzzlePage.vue'),
+        },
+      ],
+    },
+    {
+      path: '/records',
+      component: () => import('@/layouts/AppLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'record-list',
+          component: () => import('@/pages/records/RecordListPage.vue'),
+        },
+        {
+          path: 'new',
+          name: 'record-new',
+          component: () => import('@/pages/records/RecordFormPage.vue'),
+        },
+        {
+          path: ':id/edit',
+          name: 'record-edit',
+          component: () => import('@/pages/records/RecordFormPage.vue'),
+        },
+      ],
+    },
+    {
       path: '/notifications',
       component: () => import('@/layouts/AppLayout.vue'),
       children: [

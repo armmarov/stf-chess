@@ -17,6 +17,8 @@ import tournamentsRouter from './modules/tournaments/tournaments.routes';
 import pollsRouter from './modules/polls/polls.routes';
 import resourcesRouter from './modules/resources/resources.routes';
 import gamesRouter from './modules/games/games.routes';
+import puzzlesRouter from './modules/puzzles/puzzles.routes';
+import recordsRouter from './modules/records/records.routes';
 
 const app = express();
 
@@ -61,6 +63,8 @@ app.use('/api/tournaments', tournamentsRouter);
 app.use('/api/polls', pollsRouter);
 app.use('/api/resources', resourcesRouter);
 app.use('/api/games', gamesRouter);
+app.use('/api/puzzles', puzzlesRouter);
+app.use('/api/records', recordsRouter);
 
 app.use(errorHandler);
 

@@ -1158,6 +1158,518 @@ components:
           type: string
           maxLength: 10000
 
+    PuzzleAttemptStatus:
+      type: string
+      enum: [solved, failed, gave_up]
+      description: Outcome of a puzzle attempt as reported by the client.
+
+    PuzzleMyAttempts:
+      type: object
+      required: [solved, attempts, bestTimeMs]
+      description: Aggregated attempt state for the requesting user on a specific puzzle today.
+      properties:
+        solved:
+          type: boolean
+          description: True if the user has at least one solved attempt today.
+        attempts:
+          type: integer
+          description: Total number of attempts recorded today (retries counted; unlimited).
+        bestTimeMs:
+          type: integer
+          nullable: true
+          description: Best (lowest) solve time in milliseconds today. Null if not yet solved.
+
+    PuzzleItem:
+      type: object
+      required: [id, externalId, fen, solutionLength, rating, themes, gameUrl, myAttempts]
+      description: |
+        A daily puzzle as returned in `GET /puzzles/today`.
+        `solutionUci` is never included in any API response — only `solutionLength` (move count).
+      properties:
+        id:
+          type: string
+          format: uuid
+        externalId:
+          type: string
+          description: Lichess puzzle ID (e.g. "00008").
+        fen:
+          type: string
+          description: Starting FEN position for the puzzle.
+        solutionLength:
+          type: integer
+          description: Number of moves in the solution (computed server-side; solution not exposed).
+        rating:
+          type: integer
+          description: Lichess puzzle rating.
+        themes:
+          type: string
+          nullable: true
+          description: Space-separated theme tags (e.g. "crushing hangingPiece middlegame").
+        gameUrl:
+          type: string
+          nullable: true
+          description: URL of the source game on lichess.org.
+        myAttempts:
+          $ref: '#/components/schemas/PuzzleMyAttempts'
+
+    TodayPuzzlesResponse:
+      type: object
+      required: [date, puzzles]
+      description: Response for GET /puzzles/today. Not wrapped in an outer key.
+      properties:
+        date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: UTC date for which these puzzles were selected (YYYY-MM-DD).
+        puzzles:
+          type: array
+          items:
+            $ref: '#/components/schemas/PuzzleItem'
+          description: Exactly 5 puzzles, sorted by rating ascending (easiest first).
+
+    CheckMoveRequest:
+      type: object
+      required: [ply, uci]
+      properties:
+        ply:
+          type: integer
+          minimum: 0
+          description: Zero-indexed position in the solution move sequence.
+        uci:
+          type: string
+          minLength: 4
+          maxLength: 5
+          description: UCI move string (e.g. "e2e4" or "e7e8q" for promotion).
+
+    CheckMoveResponse:
+      description: |
+        Result of a move check. Three possible shapes discriminated by `correct` and presence of sibling fields:
+        - Wrong move: `{ correct: false, expected: "<uci>" }`
+        - Correct, more moves remain: `{ correct: true, replyUci: "<uci>" }`
+        - Correct, puzzle solved: `{ correct: true, solved: true }`
+      oneOf:
+        - type: object
+          required: [correct, expected]
+          properties:
+            correct:
+              type: boolean
+              enum: [false]
+            expected:
+              type: string
+              description: The correct UCI move for this ply.
+        - type: object
+          required: [correct, replyUci]
+          properties:
+            correct:
+              type: boolean
+              enum: [true]
+            replyUci:
+              type: string
+              description: Opponent's automatic reply move (next ply in solution).
+        - type: object
+          required: [correct, solved]
+          properties:
+            correct:
+              type: boolean
+              enum: [true]
+            solved:
+              type: boolean
+              enum: [true]
+
+    AttemptRequest:
+      type: object
+      required: [status, movesTaken, timeMs]
+      properties:
+        status:
+          $ref: '#/components/schemas/PuzzleAttemptStatus'
+        movesTaken:
+          type: integer
+          minimum: 0
+          description: Number of moves the user played before the attempt ended.
+        timeMs:
+          type: integer
+          minimum: 0
+          description: Time spent on the attempt in milliseconds.
+
+    CompetitionLevel:
+      type: string
+      enum: [sekolah, daerah, negeri, kebangsaan, antarabangsa]
+      description: |
+        Scope / tier of the competition.
+        - `sekolah` — school level
+        - `daerah` — district level
+        - `negeri` — state level
+        - `kebangsaan` — national level
+        - `antarabangsa` — international level
+
+    CompetitionCategory:
+      type: string
+      enum: [u13, u14, u15, u16, u17, u18, u21, open]
+      description: Age-bracket category for the competition.
+
+    RecordStudentSummary:
+      type: object
+      required: [id, name, username]
+      description: Student projection embedded in CompetitionRecord responses.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        username:
+          type: string
+        className:
+          $ref: '#/components/schemas/ClassName'
+
+    CompetitionRecord:
+      type: object
+      required: [id, competitionName, competitionDate, level, category, pajsk, fideRated, mcfRated, placement, createdAt, updatedAt, student, createdBy]
+      description: |
+        A competition outcome record attached to a student.
+        `competitionDate` is returned as a plain date string (`YYYY-MM-DD`), not a full ISO timestamp.
+        `placement` is an integer 1–30 for a placed result, or null for participation-only.
+      properties:
+        id:
+          type: string
+          format: uuid
+        competitionName:
+          type: string
+          maxLength: 200
+        competitionDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Date of the competition in YYYY-MM-DD format.
+          example: "2025-09-14"
+        level:
+          $ref: '#/components/schemas/CompetitionLevel'
+        category:
+          $ref: '#/components/schemas/CompetitionCategory'
+        pajsk:
+          type: boolean
+          description: Whether the competition counts toward PAJSK co-curricular marks.
+        fideRated:
+          type: boolean
+          description: Whether the competition is FIDE-rated.
+        mcfRated:
+          type: boolean
+          description: Whether the competition is MCF-rated.
+        placement:
+          type: integer
+          minimum: 1
+          maximum: 30
+          nullable: true
+          description: "Final placement (1 = Champion, 2 = 1st Runner-up, 3 = 2nd Runner-up, 4–30 = ordinal place). Null indicates participation without a placing."
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        student:
+          $ref: '#/components/schemas/RecordStudentSummary'
+        createdBy:
+          $ref: '#/components/schemas/UserSummary'
+
+    CompetitionRecordListResponse:
+      type: object
+      required: [records]
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompetitionRecord'
+          description: Sorted by competitionDate desc, then createdAt desc.
+
+    CompetitionRecordResponse:
+      type: object
+      required: [record]
+      properties:
+        record:
+          $ref: '#/components/schemas/CompetitionRecord'
+
+    CreateCompetitionRecordRequest:
+      type: object
+      required: [studentId, competitionName, competitionDate, level, category, pajsk, fideRated, mcfRated, placement]
+      properties:
+        studentId:
+          type: string
+          format: uuid
+          description: ID of the student this record belongs to.
+        competitionName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        competitionDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Date of the competition in YYYY-MM-DD format.
+          example: "2025-09-14"
+        level:
+          $ref: '#/components/schemas/CompetitionLevel'
+        category:
+          $ref: '#/components/schemas/CompetitionCategory'
+        pajsk:
+          type: boolean
+        fideRated:
+          type: boolean
+        mcfRated:
+          type: boolean
+        placement:
+          type: integer
+          minimum: 1
+          maximum: 30
+          nullable: true
+          description: "1–30 for a placed result; null for participation-only."
+
+    UpdateCompetitionRecordRequest:
+      type: object
+      description: |
+        All fields are optional. At least one field must be provided (enforced by server — empty body returns 400).
+        `studentId` is immutable after creation and cannot be changed via PATCH.
+      properties:
+        competitionName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        competitionDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Date of the competition in YYYY-MM-DD format.
+          example: "2025-09-14"
+        level:
+          $ref: '#/components/schemas/CompetitionLevel'
+        category:
+          $ref: '#/components/schemas/CompetitionCategory'
+        pajsk:
+          type: boolean
+        fideRated:
+          type: boolean
+        mcfRated:
+          type: boolean
+        placement:
+          type: integer
+          minimum: 1
+          maximum: 30
+          nullable: true
+          description: "1–30 for a placed result; null for participation-only."
+
+    PuzzleAttemptRecord:
+      type: object
+      required: [id, status, isFirstTry, movesTaken, timeMs, attemptedOn]
+      description: A recorded puzzle attempt as returned by POST /puzzles/{id}/attempt.
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/PuzzleAttemptStatus'
+        isFirstTry:
+          type: boolean
+          description: True if this was the user's first attempt on this puzzle today.
+        movesTaken:
+          type: integer
+        timeMs:
+          type: integer
+        attemptedOn:
+          type: string
+          format: date-time
+          description: Date the attempt was recorded (date-only stored as midnight UTC).
+
+    PuzzleTodayProgress:
+      type: object
+      required: [solved, total]
+      properties:
+        solved:
+          type: integer
+          description: Number of today's 5 puzzles the user has solved.
+        total:
+          type: integer
+          description: Always 5.
+
+    PuzzleDayStat:
+      type: object
+      required: [date, solved]
+      properties:
+        date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: UTC date (YYYY-MM-DD).
+        solved:
+          type: boolean
+          description: True if the user solved at least one puzzle on this date.
+
+    PuzzleStatsResponse:
+      type: object
+      required: [totalSolved, currentStreak, longestStreak, todayProgress, last7Days]
+      description: Response for GET /puzzles/me/stats. Not wrapped in an outer key.
+      properties:
+        totalSolved:
+          type: integer
+          description: Total number of solved attempts across all time.
+        currentStreak:
+          type: integer
+          description: Consecutive days (going back from today) on which the user solved ≥1 puzzle.
+        longestStreak:
+          type: integer
+          description: All-time longest consecutive-day streak.
+        todayProgress:
+          $ref: '#/components/schemas/PuzzleTodayProgress'
+        last7Days:
+          type: array
+          items:
+            $ref: '#/components/schemas/PuzzleDayStat'
+          description: 7 entries ordered oldest-to-newest (index 0 = 6 days ago, index 6 = today).
+
+    CompetitionLevel:
+      type: string
+      enum: [sekolah, daerah, negeri, kebangsaan, antarabangsa]
+      description: Geographic scope of the competition (school → district → state → national → international).
+
+    CompetitionCategory:
+      type: string
+      enum: [u13, u14, u15, u16, u17, u18, u21, open]
+      description: Age or open category of the competition.
+
+    CompetitionRecord:
+      type: object
+      required: [id, competitionName, competitionDate, level, category, pajsk, fideRated, mcfRated, placement, student, createdBy, createdAt, updatedAt]
+      description: A student's competition result record.
+      properties:
+        id:
+          type: string
+          description: CUID identifier (not UUID format).
+        competitionName:
+          type: string
+          maxLength: 200
+        competitionDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Date serialised as YYYY-MM-DD (date-only, no time component).
+        level:
+          $ref: '#/components/schemas/CompetitionLevel'
+        category:
+          $ref: '#/components/schemas/CompetitionCategory'
+        pajsk:
+          type: boolean
+          description: Whether this result qualifies for PAJSK co-curricular credit.
+        fideRated:
+          type: boolean
+          description: Whether the competition was FIDE-rated.
+        mcfRated:
+          type: boolean
+          description: Whether the competition was MCF-rated.
+        placement:
+          type: integer
+          minimum: 1
+          maximum: 30
+          nullable: true
+          description: Final placing (1 = gold). Null if not recorded.
+        student:
+          type: object
+          required: [id, name, username, className]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            username:
+              type: string
+            className:
+              $ref: '#/components/schemas/ClassName'
+        createdBy:
+          type: object
+          required: [id, name]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CompetitionRecordListResponse:
+      type: object
+      required: [records]
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompetitionRecord'
+          description: Sorted by competitionDate descending, then createdAt descending.
+
+    CompetitionRecordResponse:
+      type: object
+      required: [record]
+      properties:
+        record:
+          $ref: '#/components/schemas/CompetitionRecord'
+
+    CreateCompetitionRecordRequest:
+      type: object
+      required: [studentId, competitionName, competitionDate, level, category, pajsk, fideRated, mcfRated, placement]
+      properties:
+        studentId:
+          type: string
+          format: uuid
+          description: Target student. Students may only supply their own ID.
+        competitionName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        competitionDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: YYYY-MM-DD format.
+        level:
+          $ref: '#/components/schemas/CompetitionLevel'
+        category:
+          $ref: '#/components/schemas/CompetitionCategory'
+        pajsk:
+          type: boolean
+        fideRated:
+          type: boolean
+        mcfRated:
+          type: boolean
+        placement:
+          type: integer
+          minimum: 1
+          maximum: 30
+          nullable: true
+
+    UpdateCompetitionRecordRequest:
+      type: object
+      description: All fields optional; at least one must be provided.
+      properties:
+        competitionName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        competitionDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        level:
+          $ref: '#/components/schemas/CompetitionLevel'
+        category:
+          $ref: '#/components/schemas/CompetitionCategory'
+        pajsk:
+          type: boolean
+        fideRated:
+          type: boolean
+        mcfRated:
+          type: boolean
+        placement:
+          type: integer
+          minimum: 1
+          maximum: 30
+          nullable: true
+
     ResourceType:
       type: string
       enum: [book, homework, app]
@@ -4286,3 +4798,401 @@ paths:
                 $ref: '#/components/schemas/Error'
               example:
                 error: Game not found
+
+  /puzzles/today:
+    get:
+      summary: Get today's puzzles
+      operationId: getTodayPuzzles
+      tags: [Puzzles]
+      description: |
+        Returns the 5 puzzles selected for today's UTC date. Available to every authenticated role.
+
+        **Selection algorithm:** a 32-bit polynomial hash of the date string determines a start index into the puzzle table (ordered by `createdAt asc`), with wrap-around to guarantee exactly 5 results. The same 5 puzzles are returned to all users on the same day. The result is cached in-process until the date changes.
+
+        Puzzles are returned sorted by rating ascending (easiest first).
+
+        `solutionUci` is **never included** in any API response — only `solutionLength` (move count) is exposed.
+      responses:
+        '200':
+          description: Today's puzzles with per-user attempt state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodayPuzzlesResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No puzzles seeded in database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: No puzzles available
+
+  /puzzles/me/stats:
+    get:
+      summary: Get my puzzle stats
+      operationId: getMyPuzzleStats
+      tags: [Puzzles]
+      description: |
+        Returns the authenticated user's cumulative puzzle statistics. Not wrapped in an outer key.
+
+        **Streak definition:** a day counts toward the streak if the user has ≥1 solved attempt on that day. No requirement to solve all 5 puzzles.
+      responses:
+        '200':
+          description: User puzzle stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PuzzleStatsResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /puzzles/{id}/check-move:
+    post:
+      summary: Check a puzzle move
+      operationId: checkPuzzleMove
+      tags: [Puzzles]
+      description: |
+        Validates a single move against the puzzle solution. Available to every authenticated role.
+
+        The solution is stored server-side as a space-separated UCI string. The client submits one move at a time using a zero-indexed `ply`. Three response shapes are possible:
+        - **Wrong move** — `{ correct: false, expected: "<uci>" }`
+        - **Correct, more moves remain** — `{ correct: true, replyUci: "<uci>" }` (opponent's automatic reply)
+        - **Correct, puzzle solved** — `{ correct: true, solved: true }`
+
+        This endpoint does not record attempts — use `POST /puzzles/{id}/attempt` for that.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckMoveRequest'
+      responses:
+        '200':
+          description: Move check result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckMoveResponse'
+        '400':
+          description: Ply is out of range for this puzzle's solution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Ply out of range
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Puzzle not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Puzzle not found
+
+  /puzzles/{id}/attempt:
+    post:
+      summary: Record a puzzle attempt
+      operationId: recordPuzzleAttempt
+      tags: [Puzzles]
+      description: |
+        Records the outcome of a puzzle session. Available to every authenticated role.
+
+        **Retry semantics:** a user may submit any number of attempts per puzzle per day. All attempts are stored, but only the first attempt of the day sets `isFirstTry: true`. Retries are recorded for future gamification but do not retroactively change any existing attempt.
+
+        `attemptedOn` is the server-side UTC date (midnight UTC), not the client's local date.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttemptRequest'
+      responses:
+        '201':
+          description: Attempt recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attempt]
+                properties:
+                  attempt:
+                    $ref: '#/components/schemas/PuzzleAttemptRecord'
+        '400':
+          description: Validation error (invalid status, negative movesTaken or timeMs)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Puzzle not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Puzzle not found
+
+  /records:
+    get:
+      summary: List competition records
+      operationId: listRecords
+      tags: [Records]
+      description: |
+        Returns all competition records, optionally filtered to a single student.
+        Results are sorted by `competitionDate` descending, then `createdAt` descending.
+
+        **Role access:** any authenticated role.
+      parameters:
+        - name: studentId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: When provided, returns only records belonging to this student.
+      responses:
+        '200':
+          description: List of competition records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionRecordListResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create a competition record
+      operationId: createRecord
+      tags: [Records]
+      description: |
+        Creates a new competition record for a student.
+
+        **Role access:**
+        - `student`: may only create records where `studentId` equals their own ID. Providing a different `studentId` returns 403.
+        - `teacher` / `admin`: may create records for any `studentId`.
+        - `coach` and other roles: 403.
+
+        `createdById` is set server-side to the authenticated user's ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCompetitionRecordRequest'
+      responses:
+        '201':
+          description: Record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionRecordResponse'
+        '400':
+          description: Validation error (missing required field, invalid enum value, date format, placement out of range, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient role, or student attempting to create a record for another student
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                forbidden:
+                  value:
+                    error: Forbidden
+                student_self_only:
+                  value:
+                    error: Students may only create records for themselves
+
+  /records/{id}:
+    get:
+      summary: Get a single competition record
+      operationId: getRecord
+      tags: [Records]
+      description: |
+        Returns a single competition record by ID.
+
+        **Role access:** any authenticated role.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: CUID record identifier.
+      responses:
+        '200':
+          description: Competition record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionRecordResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Record not found
+
+    patch:
+      summary: Update a competition record
+      operationId: updateRecord
+      tags: [Records]
+      description: |
+        Partially updates a competition record. All body fields are optional; at least one must be provided.
+        `studentId` is immutable and cannot be changed.
+
+        **Role access:**
+        - Record creator (any role): may update their own records.
+        - `teacher` / `admin`: may update any record regardless of creator.
+        - All others (non-creator coach, non-creator student): 403.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: CUID record identifier.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompetitionRecordRequest'
+      responses:
+        '200':
+          description: Updated competition record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionRecordResponse'
+        '400':
+          description: Validation error, or empty body (no fields provided)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not the record creator and does not hold teacher or admin role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Record not found
+
+    delete:
+      summary: Delete a competition record
+      operationId: deleteRecord
+      tags: [Records]
+      description: |
+        Permanently deletes a competition record. This action is not reversible.
+
+        **Role access:**
+        - Record creator (any role): may delete their own records.
+        - `teacher` / `admin`: may delete any record regardless of creator.
+        - All others (non-creator coach, non-creator student): 403.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: CUID record identifier.
+      responses:
+        '204':
+          description: Record deleted — no body returned
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Caller is not the record creator and does not hold teacher or admin role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Forbidden
+        '404':
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Record not found

@@ -9,6 +9,7 @@ import { toHHMM, formatDate } from '@/utils/format'
 import StatCard from '@/components/StatCard.vue'
 import NotificationsCard from '@/components/NotificationsCard.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import PuzzleDashboardCard from '@/components/PuzzleDashboardCard.vue'
 
 const auth = useAuthStore()
 const dashboardStore = useDashboardStore()
@@ -103,7 +104,8 @@ onMounted(() => {
       </RouterLink>
     </div>
 
-    <div class="mt-4">
+    <div class="mt-4 flex flex-col gap-3">
+      <PuzzleDashboardCard />
       <NotificationsCard />
     </div>
   </div>

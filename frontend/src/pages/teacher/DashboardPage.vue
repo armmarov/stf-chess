@@ -7,6 +7,7 @@ import { toDateString } from '@/utils/format'
 import type { TeacherStats } from '@/api/dashboard'
 import StatCard from '@/components/StatCard.vue'
 import NotificationsCard from '@/components/NotificationsCard.vue'
+import PuzzleDashboardCard from '@/components/PuzzleDashboardCard.vue'
 
 const auth = useAuthStore()
 const sessionStore = useSessionStore()
@@ -86,7 +87,8 @@ onMounted(() => {
       </RouterLink>
     </div>
 
-    <div class="mt-4">
+    <div class="mt-4 flex flex-col gap-3">
+      <PuzzleDashboardCard />
       <NotificationsCard />
     </div>
   </div>

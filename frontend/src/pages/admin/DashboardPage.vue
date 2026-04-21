@@ -5,6 +5,7 @@ import { useDashboardStore } from '@/stores/dashboardStore'
 import type { AdminStats } from '@/api/dashboard'
 import StatCard from '@/components/StatCard.vue'
 import NotificationsCard from '@/components/NotificationsCard.vue'
+import PuzzleDashboardCard from '@/components/PuzzleDashboardCard.vue'
 
 const auth = useAuthStore()
 const dashboardStore = useDashboardStore()
@@ -68,7 +69,8 @@ onMounted(() => dashboardStore.fetchStats())
       </RouterLink>
     </div>
 
-    <div class="mt-4">
+    <div class="mt-4 flex flex-col gap-3">
+      <PuzzleDashboardCard />
       <NotificationsCard />
     </div>
   </div>

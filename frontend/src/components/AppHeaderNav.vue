@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { onClickOutside } from '@vueuse/core'
 import AppIcon from '@/components/AppIcon.vue'
 import { useNotificationStore } from '@/stores/notificationStore'
@@ -15,18 +15,57 @@ export interface NavLink {
   icon?: IconName
 }
 
-const props = defineProps<{ links: NavLink[] }>()
+export interface NavGroup {
+  label: string
+  icon?: IconName
+  children: NavLink[]
+}
+
+export type NavItem = NavLink | NavGroup
+
+function isGroup(item: NavItem): item is NavGroup {
+  return (item as NavGroup).children !== undefined
+}
+
+// Back-compat: accept either `items` (new) or `links` (old flat list).
+const props = defineProps<{ items?: NavItem[]; links?: NavLink[] }>()
 const emit = defineEmits<{ logout: [] }>()
 
 const router = useRouter()
+const route = useRoute()
 const notifStore = useNotificationStore()
 
-const dashboardLink = computed(
-  () => props.links.find((l) => l.label === 'Dashboard')?.to ?? '/',
-)
+const navItems = computed<NavItem[]>(() => props.items ?? props.links ?? [])
+
+const dashboardLink = computed(() => {
+  for (const it of navItems.value) {
+    if (!isGroup(it) && it.label === 'Dashboard') return it.to
+  }
+  return '/'
+})
+
+function groupIsActive(g: NavGroup): boolean {
+  return g.children.some((c) => route.path === c.to || route.path.startsWith(c.to + '/'))
+}
+
+const openGroup = ref<string | null>(null)
+const desktopNavRef = ref<HTMLElement | null>(null)
+onClickOutside(desktopNavRef, () => { openGroup.value = null })
+
+function toggleGroup(label: string) {
+  openGroup.value = openGroup.value === label ? null : label
+}
 
 const menuOpen = ref(false)
 const mobileNav = ref<HTMLElement | null>(null)
+const mobileOpenSections = ref<Set<string>>(new Set())
+
+function toggleMobileSection(label: string) {
+  const next = new Set(mobileOpenSections.value)
+  if (next.has(label)) next.delete(label)
+  else next.add(label)
+  mobileOpenSections.value = next
+}
 
 const bellOpen = ref(false)
 const bellRef = ref<HTMLElement | null>(null)
@@ -38,13 +77,15 @@ function onKeyDown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     menuOpen.value = false
     bellOpen.value = false
+    openGroup.value = null
   }
 }
 onMounted(() => window.addEventListener('keydown', onKeyDown))
 onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
 
-function closeAndLogout() {
+function closeAllAndLogout() {
   menuOpen.value = false
+  openGroup.value = null
   emit('logout')
 }
 
@@ -52,6 +93,7 @@ async function toggleBell() {
   bellOpen.value = !bellOpen.value
   if (bellOpen.value) {
     menuOpen.value = false
+    openGroup.value = null
     await notifStore.fetchNotifications({ limit: 10 })
   }
 }
@@ -84,19 +126,73 @@ function handleNotifClick(n: Notification) {
       <!-- Right side: desktop nav + bell + mobile burger -->
       <div class="flex items-center gap-2">
         <!-- Desktop nav -->
-        <nav class="hidden sm:flex items-center gap-4 text-sm" aria-label="Main navigation">
-          <RouterLink
-            v-for="link in props.links"
-            :key="link.to"
-            :to="link.to"
-            class="flex items-center gap-1 text-gray-600 hover:text-indigo-600 transition-colors"
-            :active-class="link.exact ? '' : 'text-indigo-600 font-medium'"
-            exact-active-class="text-indigo-600 font-medium"
+        <nav
+          ref="desktopNavRef"
+          class="hidden sm:flex items-center gap-4 text-sm"
+          aria-label="Main navigation"
+        >
+          <template v-for="item in navItems" :key="item.label">
+            <!-- Top-level link -->
+            <RouterLink
+              v-if="!isGroup(item)"
+              :to="item.to"
+              class="flex items-center gap-1 text-gray-600 hover:text-indigo-600 transition-colors"
+              :active-class="item.exact ? '' : 'text-indigo-600 font-medium'"
+              exact-active-class="text-indigo-600 font-medium"
+            >
+              <AppIcon v-if="item.icon" :name="item.icon" class="h-4 w-4" />
+              {{ item.label }}
+            </RouterLink>
+
+            <!-- Top-level group with dropdown -->
+            <div v-else class="relative">
+              <button
+                type="button"
+                class="flex items-center gap-1 text-gray-600 hover:text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded px-0.5"
+                :class="{ 'text-indigo-600 font-medium': groupIsActive(item) }"
+                :aria-expanded="openGroup === item.label"
+                aria-haspopup="true"
+                @click="toggleGroup(item.label)"
+              >
+                <AppIcon v-if="item.icon" :name="item.icon" class="h-4 w-4" />
+                {{ item.label }}
+                <svg
+                  class="h-3 w-3 transition-transform"
+                  :class="{ 'rotate-180': openGroup === item.label }"
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <Transition name="menu">
+                <div
+                  v-if="openGroup === item.label"
+                  class="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-md border border-gray-100 z-40 py-1"
+                  role="menu"
+                >
+                  <RouterLink
+                    v-for="child in item.children"
+                    :key="child.to"
+                    :to="child.to"
+                    role="menuitem"
+                    class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                    :active-class="child.exact ? '' : 'text-indigo-600 font-medium bg-indigo-50'"
+                    exact-active-class="text-indigo-600 font-medium bg-indigo-50"
+                    @click="openGroup = null"
+                  >
+                    <AppIcon v-if="child.icon" :name="child.icon" class="h-4 w-4" />
+                    {{ child.label }}
+                  </RouterLink>
+                </div>
+              </Transition>
+            </div>
+          </template>
+
+          <button
+            class="flex items-center gap-1 text-gray-600 hover:text-gray-900 transition-colors"
+            @click="closeAllAndLogout"
           >
-            <AppIcon v-if="link.icon" :name="link.icon" class="h-4 w-4" />
-            {{ link.label }}
-          </RouterLink>
-          <button class="flex items-center gap-1 text-gray-600 hover:text-gray-900" @click="emit('logout')">
             <AppIcon name="logout" class="h-4 w-4" />
             Logout
           </button>
@@ -124,7 +220,6 @@ function handleNotifClick(n: Notification) {
               v-if="bellOpen"
               class="absolute right-0 top-full mt-1 w-80 bg-white rounded-lg shadow-lg border border-gray-100 z-50 flex flex-col"
             >
-              <!-- Header -->
               <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
                 <span class="text-sm font-semibold text-gray-900">Notifications</span>
                 <button
@@ -136,17 +231,14 @@ function handleNotifClick(n: Notification) {
                 </button>
               </div>
 
-              <!-- Loading -->
               <div v-if="notifStore.loading" class="py-6 text-center text-xs text-gray-400">
                 Loading…
               </div>
 
-              <!-- Empty -->
               <div v-else-if="notifStore.items.length === 0" class="py-6 text-center text-xs text-gray-400">
                 No notifications yet.
               </div>
 
-              <!-- List -->
               <ul v-else class="max-h-80 overflow-y-auto divide-y divide-gray-50">
                 <li
                   v-for="n in notifStore.items"
@@ -167,7 +259,6 @@ function handleNotifClick(n: Notification) {
                 </li>
               </ul>
 
-              <!-- Footer -->
               <div class="border-t border-gray-100 px-4 py-2.5">
                 <button
                   class="w-full text-xs text-indigo-600 hover:underline text-center"
@@ -196,31 +287,73 @@ function handleNotifClick(n: Notification) {
             </svg>
           </button>
 
-          <!-- Mobile dropdown -->
           <Transition name="menu">
             <nav
               v-if="menuOpen"
               role="menu"
               aria-label="Main navigation"
-              class="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-md border border-gray-100 z-40 py-1"
+              class="absolute right-0 top-full mt-1 w-56 max-h-[80vh] overflow-y-auto bg-white rounded-lg shadow-md border border-gray-100 z-40 py-1"
             >
-              <RouterLink
-                v-for="link in props.links"
-                :key="link.to"
-                :to="link.to"
-                role="menuitem"
-                class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
-                :active-class="link.exact ? '' : 'text-indigo-600 font-medium bg-indigo-50'"
-                exact-active-class="text-indigo-600 font-medium bg-indigo-50"
-                @click="menuOpen = false"
-              >
-                <AppIcon v-if="link.icon" :name="link.icon" class="h-4 w-4" />
-                {{ link.label }}
-              </RouterLink>
+              <template v-for="item in navItems" :key="item.label">
+                <!-- Flat link -->
+                <RouterLink
+                  v-if="!isGroup(item)"
+                  :to="item.to"
+                  role="menuitem"
+                  class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-indigo-600 transition-colors"
+                  :active-class="item.exact ? '' : 'text-indigo-600 font-medium bg-indigo-50'"
+                  exact-active-class="text-indigo-600 font-medium bg-indigo-50"
+                  @click="menuOpen = false"
+                >
+                  <AppIcon v-if="item.icon" :name="item.icon" class="h-4 w-4" />
+                  {{ item.label }}
+                </RouterLink>
+
+                <!-- Collapsible group -->
+                <div v-else>
+                  <button
+                    type="button"
+                    class="flex items-center justify-between w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    :class="{ 'text-indigo-600 font-medium': groupIsActive(item) }"
+                    :aria-expanded="mobileOpenSections.has(item.label)"
+                    @click="toggleMobileSection(item.label)"
+                  >
+                    <span class="flex items-center gap-2">
+                      <AppIcon v-if="item.icon" :name="item.icon" class="h-4 w-4" />
+                      {{ item.label }}
+                    </span>
+                    <svg
+                      class="h-3 w-3 transition-transform"
+                      :class="{ 'rotate-180': mobileOpenSections.has(item.label) }"
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  <div v-if="mobileOpenSections.has(item.label)" class="bg-gray-50/60">
+                    <RouterLink
+                      v-for="child in item.children"
+                      :key="child.to"
+                      :to="child.to"
+                      role="menuitem"
+                      class="flex items-center gap-2 pl-9 pr-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-indigo-600 transition-colors"
+                      :active-class="child.exact ? '' : 'text-indigo-600 font-medium'"
+                      exact-active-class="text-indigo-600 font-medium"
+                      @click="menuOpen = false"
+                    >
+                      <AppIcon v-if="child.icon" :name="child.icon" class="h-4 w-4" />
+                      {{ child.label }}
+                    </RouterLink>
+
+                  </div>
+                </div>
+              </template>
+
               <button
                 role="menuitem"
                 class="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-                @click="closeAndLogout"
+                @click="closeAllAndLogout"
               >
                 <AppIcon name="logout" class="h-4 w-4" />
                 Logout

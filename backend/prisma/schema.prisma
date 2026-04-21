@@ -48,6 +48,9 @@ model User {
   votes               Vote[]                @relation("UserVotes")
   resourcesCreated    Resource[]            @relation("ResourceCreatedBy")
   gamesCreated        Game[]                @relation("GameCreatedBy")
+  puzzleAttempts      PuzzleAttempt[]       @relation("PuzzleAttempts")
+  competitionRecords        CompetitionRecord[] @relation("studentRecords")
+  createdCompetitionRecords CompetitionRecord[] @relation("recordCreator")
 
   @@map("users")
 }
@@ -303,4 +306,89 @@ model Game {
   @@index([createdAt])
   @@index([tournamentName])
   @@map("games")
+}
+
+enum PuzzleAttemptStatus {
+  solved
+  failed
+  gave_up
+}
+
+model Puzzle {
+  id              String   @id @default(uuid())
+  externalId      String   @unique @map("external_id")
+  fen             String   @db.VarChar(120)
+  solutionUci     String   @map("solution_uci")
+  rating          Int
+  ratingDeviation Int?     @map("rating_deviation")
+  popularity      Int?
+  themes          String?  @db.Text
+  openingTags     String?  @map("opening_tags") @db.Text
+  gameUrl         String?  @map("game_url")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  attempts PuzzleAttempt[]
+
+  @@index([rating])
+  @@map("puzzles")
+}
+
+model PuzzleAttempt {
+  id          String              @id @default(uuid())
+  puzzleId    String              @map("puzzle_id")
+  userId      String              @map("user_id")
+  status      PuzzleAttemptStatus
+  movesTaken  Int                 @map("moves_taken")
+  timeMs      Int                 @map("time_ms")
+  isFirstTry  Boolean             @map("is_first_try")
+  attemptedOn DateTime            @db.Date @map("attempted_on")
+
+  puzzle Puzzle @relation(fields: [puzzleId], references: [id], onDelete: Cascade)
+  user   User   @relation("PuzzleAttempts", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, attemptedOn])
+  @@index([puzzleId])
+  @@map("puzzle_attempts")
+}
+
+enum CompetitionLevel {
+  sekolah
+  daerah
+  negeri
+  kebangsaan
+  antarabangsa
+}
+
+enum CompetitionCategory {
+  u13
+  u14
+  u15
+  u16
+  u17
+  u18
+  u21
+  open
+}
+
+model CompetitionRecord {
+  id              String              @id @default(cuid())
+  studentId       String              @map("student_id")
+  createdById     String              @map("created_by_id")
+  competitionName String              @map("competition_name")
+  competitionDate DateTime            @map("competition_date") @db.Date
+  level           CompetitionLevel
+  pajsk           Boolean             @default(false)
+  fideRated       Boolean             @default(false) @map("fide_rated")
+  mcfRated        Boolean             @default(false) @map("mcf_rated")
+  category        CompetitionCategory
+  placement       Int?
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  student   User @relation("studentRecords", fields: [studentId], references: [id], onDelete: Restrict)
+  createdBy User @relation("recordCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([studentId])
+  @@index([competitionDate])
+  @@map("competition_records")
 }

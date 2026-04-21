@@ -15,6 +15,7 @@ export const prisma = new PrismaClient({
  */
 export async function resetDb(): Promise<void> {
   await prisma.$transaction([
+    prisma.$executeRawUnsafe('TRUNCATE TABLE "competition_records" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "notifications" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "tournament_interests" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "votes" CASCADE'),
@@ -27,6 +28,8 @@ export async function resetDb(): Promise<void> {
     prisma.$executeRawUnsafe('TRUNCATE TABLE "polls" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "resources" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "games" CASCADE'),
+    prisma.$executeRawUnsafe('TRUNCATE TABLE "puzzle_attempts" CASCADE'),
+    prisma.$executeRawUnsafe('TRUNCATE TABLE "puzzles" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "app_configs" CASCADE'),
     prisma.$executeRawUnsafe('TRUNCATE TABLE "users" CASCADE'),
   ]);
