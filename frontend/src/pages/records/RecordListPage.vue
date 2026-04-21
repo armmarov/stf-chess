@@ -22,10 +22,11 @@ const canCreate = computed(() => {
 
 const students = computed(() => userStore.listCache[userStore.cacheKey({ role: 'student' })] ?? [])
 
-const canEditRecord = (record: { createdBy: { id: string } }) => {
+const canEditRecord = (record: { createdBy?: { id: string } | null } | undefined) => {
+  if (!record) return false
   const role = auth.user?.role
   if (role === 'admin' || role === 'teacher') return true
-  return record.createdBy.id === auth.user?.id
+  return record.createdBy?.id === auth.user?.id
 }
 
 function formatCompetitionDate(iso: string): string {
