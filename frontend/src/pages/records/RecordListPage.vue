@@ -15,6 +15,14 @@ const userStore = useUserStore()
 const router = useRouter()
 
 const selectedStudentId = ref<string>('')
+const lightboxUrl = ref<string | null>(null)
+
+function openLightbox(url: string) {
+  lightboxUrl.value = url
+}
+function closeLightbox() {
+  lightboxUrl.value = null
+}
 
 const canCreate = computed(() => {
   const role = auth.user?.role
@@ -141,21 +149,19 @@ onMounted(async () => {
         </div>
 
         <!-- Image thumbnail -->
-        <a
+        <button
           v-if="record.hasImage"
-          :href="recordImageUrl(record.id)"
-          target="_blank"
-          rel="noopener"
-          class="block mb-2"
-          @click.stop
+          type="button"
+          class="block w-full mb-2 rounded overflow-hidden border border-gray-200 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          @click.stop="openLightbox(recordImageUrl(record.id))"
         >
           <img
             :src="recordImageUrl(record.id)"
-            class="w-full max-h-48 object-cover rounded border border-gray-200"
+            class="w-full max-h-48 object-cover"
             alt="Competition image"
             loading="lazy"
           />
-        </a>
+        </button>
 
         <!-- Competition name + date -->
         <p class="text-sm text-gray-800 font-medium mb-1.5">{{ record.competitionName }}</p>
@@ -188,6 +194,31 @@ onMounted(async () => {
           </span>
         </div>
       </div>
+    </div>
+
+    <!-- Image lightbox -->
+    <div
+      v-if="lightboxUrl"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      role="dialog"
+      aria-modal="true"
+      @click="closeLightbox"
+      @keydown.esc="closeLightbox"
+    >
+      <button
+        type="button"
+        class="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white"
+        aria-label="Close"
+        @click.stop="closeLightbox"
+      >
+        <AppIcon name="x-mark" class="h-5 w-5" />
+      </button>
+      <img
+        :src="lightboxUrl"
+        class="max-w-full max-h-full object-contain rounded"
+        alt="Competition image"
+        @click.stop
+      />
     </div>
   </div>
 </template>
