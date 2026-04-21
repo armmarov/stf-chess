@@ -16,6 +16,7 @@ import dashboardRouter from './modules/dashboard/dashboard.routes';
 import tournamentsRouter from './modules/tournaments/tournaments.routes';
 import pollsRouter from './modules/polls/polls.routes';
 import resourcesRouter from './modules/resources/resources.routes';
+import gamesRouter from './modules/games/games.routes';
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/tournaments', tournamentsRouter);
 app.use('/api/polls', pollsRouter);
 app.use('/api/resources', resourcesRouter);
+app.use('/api/games', gamesRouter);
 
 app.use(errorHandler);
 

@@ -13,6 +13,7 @@ const links: NavLink[] = [
   { label: 'Tournaments', to: '/tournaments', icon: 'trophy' },
   { label: 'Polls', to: '/polls', icon: 'clipboard' },
   { label: 'Resources', to: '/resources', icon: 'book' },
+  { label: 'Games', to: '/games', icon: 'chess' },
   { label: 'Payments', to: '/student/payments', icon: 'dollar' },
   { label: 'Profile', to: '/profile', icon: 'user-circle' },
   { label: 'About', to: '/about', icon: 'info' },

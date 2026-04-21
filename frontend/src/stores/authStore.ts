@@ -11,6 +11,7 @@ import { useDashboardStore } from './dashboardStore'
 import { useTournamentStore } from './tournamentStore'
 import { usePollStore } from './pollStore'
 import { useResourceStore } from './resourceStore'
+import { useGameStore } from './gameStore'
 
 export type Role = 'admin' | 'teacher' | 'coach' | 'student'
 
@@ -37,6 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
     useTournamentStore().$reset()
     usePollStore().$reset()
     useResourceStore().$reset()
+    useGameStore().$reset()
   }
 
   async function login(username: string, password: string): Promise<void> {

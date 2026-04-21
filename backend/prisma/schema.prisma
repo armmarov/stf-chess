@@ -46,6 +46,7 @@ model User {
   pollsCreated        Poll[]                @relation("PollCreatedBy")
   votes               Vote[]                @relation("UserVotes")
   resourcesCreated    Resource[]            @relation("ResourceCreatedBy")
+  gamesCreated        Game[]                @relation("GameCreatedBy")
 
   @@map("users")
 }
@@ -272,4 +273,33 @@ model Resource {
   @@index([type])
   @@index([isEnabled])
   @@map("resources")
+}
+
+enum GameResult {
+  white_win @map("1-0")
+  black_win @map("0-1")
+  draw      @map("1/2-1/2")
+}
+
+model Game {
+  id             String     @id @default(uuid())
+  tournamentName String     @map("tournament_name") @db.VarChar(200)
+  whitePlayer    String     @map("white_player") @db.VarChar(120)
+  blackPlayer    String     @map("black_player") @db.VarChar(120)
+  result         GameResult
+  pgn            String     @db.Text
+  eventDate      DateTime?  @map("event_date") @db.Date
+  whiteElo       Int?       @map("white_elo")
+  blackElo       Int?       @map("black_elo")
+  opening        String?    @db.VarChar(120)
+  notes          String?    @db.Text
+  createdById    String     @map("created_by_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  createdBy User @relation("GameCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([tournamentName])
+  @@map("games")
 }

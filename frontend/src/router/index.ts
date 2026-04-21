@@ -96,6 +96,16 @@ const router = createRouter({
           name: 'admin-resource-edit',
           component: () => import('@/pages/admin/resources/ResourceFormPage.vue'),
         },
+        {
+          path: 'games/new',
+          name: 'admin-game-new',
+          component: () => import('@/pages/admin/games/GameFormPage.vue'),
+        },
+        {
+          path: 'games/:id/edit',
+          name: 'admin-game-edit',
+          component: () => import('@/pages/admin/games/GameFormPage.vue'),
+        },
       ],
     },
     {
@@ -233,6 +243,22 @@ const router = createRouter({
           path: ':id',
           name: 'poll-detail',
           component: () => import('@/pages/polls/PollDetailPage.vue'),
+        },
+      ],
+    },
+    {
+      path: '/games',
+      component: () => import('@/layouts/AppLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'game-list',
+          component: () => import('@/pages/games/GameListPage.vue'),
+        },
+        {
+          path: ':id',
+          name: 'game-detail',
+          component: () => import('@/pages/games/GameDetailPage.vue'),
         },
       ],
     },
