@@ -171,6 +171,7 @@ const roleBadge: Record<Role, string> = {
         </p>
         <p class="text-xs text-gray-400 mt-1">
           {{ user.lastLoginAt ? `Last seen: ${timeAgo(user.lastLoginAt)}` : 'Never logged in' }}
+          <span v-if="user.lastLoginIp" class="ml-1 text-gray-400">· IP {{ user.lastLoginIp }}</span>
         </p>
       </div>
     </div>

@@ -12,6 +12,7 @@ export interface User {
   isActive: boolean
   createdAt: string
   lastLoginAt: string | null
+  lastLoginIp: string | null
 }
 
 export interface ListUsersQuery {

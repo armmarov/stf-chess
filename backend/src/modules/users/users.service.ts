@@ -17,6 +17,7 @@ const USER_SELECT = {
   className: true,
   createdAt: true,
   lastLoginAt: true,
+  lastLoginIp: true,
 } as const;
 
 function handleUniqueViolation(err: unknown): never {

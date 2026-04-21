@@ -17,6 +17,7 @@ export interface JwtPayload {
 export async function loginUser(
   username: string,
   password: string,
+  ip?: string | null,
 ): Promise<{ user: AuthUser; token: string }> {
   const record = await prisma.user.findUnique({ where: { username } });
 
@@ -32,7 +33,10 @@ export async function loginUser(
     throw Object.assign(new Error('Account is deactivated'), { statusCode: 403 });
   }
 
-  await prisma.user.update({ where: { id: record.id }, data: { lastLoginAt: new Date() } });
+  await prisma.user.update({
+    where: { id: record.id },
+    data: { lastLoginAt: new Date(), lastLoginIp: ip ?? null },
+  });
 
   const token = jwt.sign(
     { sub: record.id, role: record.role } satisfies JwtPayload,

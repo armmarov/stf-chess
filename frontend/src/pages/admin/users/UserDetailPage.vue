@@ -185,6 +185,13 @@ const roleBadge: Record<string, string> = {
               <span v-else class="text-gray-400">Never</span>
             </dd>
           </div>
+          <div v-if="user.lastLoginIp">
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+              <AppIcon name="globe" class="h-3.5 w-3.5" />
+              Last login IP
+            </dt>
+            <dd class="text-gray-900 mt-0.5 font-mono text-xs">{{ user.lastLoginIp }}</dd>
+          </div>
         </dl>
       </div>
 

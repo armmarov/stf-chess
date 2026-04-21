@@ -16,7 +16,8 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
     }
 
     const { username, password } = parsed.data;
-    const { user, token } = await loginUser(username, password);
+    // req.ip honours X-Forwarded-For because app.set('trust proxy', 1) is on.
+    const { user, token } = await loginUser(username, password, req.ip);
 
     res.cookie(COOKIE_NAME, token, {
       httpOnly: true,
