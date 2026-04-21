@@ -382,6 +382,7 @@ model CompetitionRecord {
   mcfRated        Boolean             @default(false) @map("mcf_rated")
   category        CompetitionCategory
   placement       Int?
+  imagePath       String?             @map("image_path")
   createdAt       DateTime            @default(now()) @map("created_at")
   updatedAt       DateTime            @updatedAt @map("updated_at")
 

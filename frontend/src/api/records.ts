@@ -13,6 +13,7 @@ export interface CompetitionRecord {
   fideRated: boolean
   mcfRated: boolean
   placement: number | null
+  hasImage: boolean
   createdAt: string
   updatedAt: string
   student: { id: string; name: string; username: string; className: string | null }
@@ -29,9 +30,31 @@ export interface CreateRecordBody {
   fideRated: boolean
   mcfRated: boolean
   placement: number | null
+  image?: File | null
 }
 
-export type UpdateRecordBody = Partial<Omit<CreateRecordBody, 'studentId'>>
+export type UpdateRecordBody = Partial<Omit<CreateRecordBody, 'studentId'>> & {
+  removeImage?: boolean
+}
+
+function toFormData(body: Record<string, unknown>): FormData {
+  const fd = new FormData()
+  for (const [k, v] of Object.entries(body)) {
+    if (v === undefined) continue
+    if (k === 'image') {
+      if (v instanceof File) fd.append('image', v)
+      continue
+    }
+    if (v === null) {
+      fd.append(k, '')
+    } else if (typeof v === 'boolean') {
+      fd.append(k, v ? 'true' : 'false')
+    } else {
+      fd.append(k, String(v))
+    }
+  }
+  return fd
+}
 
 export async function listRecords(opts?: { studentId?: string }): Promise<CompetitionRecord[]> {
   const params: Record<string, string> = {}
@@ -46,15 +69,21 @@ export async function getRecord(id: string): Promise<CompetitionRecord> {
 }
 
 export async function createRecord(body: CreateRecordBody): Promise<CompetitionRecord> {
-  const { data } = await apiClient.post<{ record: CompetitionRecord }>('/records', body)
+  const fd = toFormData(body as unknown as Record<string, unknown>)
+  const { data } = await apiClient.post<{ record: CompetitionRecord }>('/records', fd)
   return data.record
 }
 
 export async function updateRecord(id: string, patch: UpdateRecordBody): Promise<CompetitionRecord> {
-  const { data } = await apiClient.patch<{ record: CompetitionRecord }>(`/records/${id}`, patch)
+  const fd = toFormData(patch as unknown as Record<string, unknown>)
+  const { data } = await apiClient.patch<{ record: CompetitionRecord }>(`/records/${id}`, fd)
   return data.record
 }
 
 export async function deleteRecord(id: string): Promise<void> {
   await apiClient.delete(`/records/${id}`)
+}
+
+export function recordImageUrl(id: string): string {
+  return `/api/records/${id}/image`
 }

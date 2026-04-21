@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useUserStore } from '@/stores/userStore'
 import { useToastStore } from '@/stores/toastStore'
 import { placementLabel, LEVEL_LABELS, CATEGORY_LABELS } from '@/utils/records'
-import type { RecordLevel, RecordCategory } from '@/api/records'
+import { recordImageUrl, type RecordLevel, type RecordCategory } from '@/api/records'
 import AppButton from '@/components/AppButton.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -39,6 +39,14 @@ const mcfRated = ref(false)
 const submitting = ref(false)
 const deleting = ref(false)
 const showDeleteModal = ref(false)
+
+// Image upload state
+const imageFile = ref<File | null>(null)
+const imagePreviewUrl = ref<string | null>(null)
+const removeImageFlag = ref(false)
+const hasExistingImage = computed(() => recordStore.current?.hasImage === true && !removeImageFlag.value && !imageFile.value)
+const imageInputRef = ref<HTMLInputElement | null>(null)
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 const levels: RecordLevel[] = ['sekolah', 'daerah', 'negeri', 'kebangsaan', 'antarabangsa']
 const categories: RecordCategory[] = ['u13', 'u14', 'u15', 'u16', 'u17', 'u18', 'u21', 'open']
@@ -108,6 +116,40 @@ onMounted(async () => {
   }
 })
 
+function onImagePicked(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  if (!file) return
+  if (file.size > MAX_IMAGE_BYTES) {
+    toastStore.show('Image exceeds 5 MB limit.', 'error')
+    input.value = ''
+    return
+  }
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    toastStore.show('Image must be JPEG, PNG, or WebP.', 'error')
+    input.value = ''
+    return
+  }
+  imageFile.value = file
+  removeImageFlag.value = false
+  if (imagePreviewUrl.value) URL.revokeObjectURL(imagePreviewUrl.value)
+  imagePreviewUrl.value = URL.createObjectURL(file)
+}
+
+function clearPickedImage() {
+  imageFile.value = null
+  if (imagePreviewUrl.value) {
+    URL.revokeObjectURL(imagePreviewUrl.value)
+    imagePreviewUrl.value = null
+  }
+  if (imageInputRef.value) imageInputRef.value.value = ''
+}
+
+function removeExistingImage() {
+  removeImageFlag.value = true
+  clearPickedImage()
+}
+
 async function handleSubmit() {
   if (!isFormValid.value) return
   submitting.value = true
@@ -123,6 +165,8 @@ async function handleSubmit() {
         pajsk: pajsk.value,
         fideRated: fideRated.value,
         mcfRated: mcfRated.value,
+        image: imageFile.value ?? undefined,
+        removeImage: removeImageFlag.value,
       })
       toastStore.show('Record updated.', 'success')
     } else {
@@ -136,6 +180,7 @@ async function handleSubmit() {
         pajsk: pajsk.value,
         fideRated: fideRated.value,
         mcfRated: mcfRated.value,
+        image: imageFile.value ?? undefined,
       })
       toastStore.show('Record created.', 'success')
     }
@@ -286,6 +331,48 @@ async function handleDelete() {
           />
           MCF rated
         </label>
+      </div>
+
+      <!-- Image upload -->
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-medium text-gray-700">Image (optional)</label>
+
+        <!-- Existing image in edit mode -->
+        <div v-if="hasExistingImage && recordId" class="flex items-start gap-3">
+          <img
+            :src="recordImageUrl(recordId)"
+            class="w-24 h-24 object-cover rounded border border-gray-200"
+            alt="Current record image"
+          />
+          <button
+            type="button"
+            class="text-xs text-red-600 hover:underline"
+            @click="removeExistingImage"
+          >
+            Remove image
+          </button>
+        </div>
+
+        <!-- Preview for a newly picked image -->
+        <div v-else-if="imagePreviewUrl" class="flex items-start gap-3">
+          <img
+            :src="imagePreviewUrl"
+            class="w-24 h-24 object-cover rounded border border-gray-200"
+            alt="Selected image preview"
+          />
+          <button type="button" class="text-xs text-red-600 hover:underline" @click="clearPickedImage">
+            Clear
+          </button>
+        </div>
+
+        <input
+          ref="imageInputRef"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          class="block text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+          @change="onImagePicked"
+        />
+        <p class="text-xs text-gray-400">JPEG / PNG / WebP, up to 5 MB</p>
       </div>
 
       <!-- Actions -->

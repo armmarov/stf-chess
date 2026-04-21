@@ -62,6 +62,27 @@ export const tournamentImageUpload = multer({
   },
 }).single('image');
 
+// Competition record image upload (JPEG / PNG / WebP)
+const recordStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = path.join(UPLOADS_DIR, 'records');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = TOURNAMENT_MIME_TO_EXT[file.mimetype] ?? path.extname(file.originalname).toLowerCase();
+    cb(null, `${uuidv4()}${ext}`);
+  },
+});
+
+export const recordImageUpload = multer({
+  storage: recordStorage,
+  limits: { fileSize: MAX_SIZE_BYTES },
+  fileFilter: (_req: Request, file, cb: multer.FileFilterCallback) => {
+    TOURNAMENT_MIMES.has(file.mimetype) ? cb(null, true) : cb(new Error('INVALID_MIME'));
+  },
+}).single('image');
+
 // Poll option image upload (JPEG / PNG / WebP) — up to 10 named fields: option_0 … option_9
 const pollStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {

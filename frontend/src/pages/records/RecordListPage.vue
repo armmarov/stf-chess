@@ -5,6 +5,7 @@ import { useRecordStore } from '@/stores/recordStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useUserStore } from '@/stores/userStore'
 import { placementLabel, LEVEL_LABELS, CATEGORY_LABELS } from '@/utils/records'
+import { recordImageUrl } from '@/api/records'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -133,6 +134,23 @@ onMounted(async () => {
             {{ placementLabel(record.placement) }}
           </span>
         </div>
+
+        <!-- Image thumbnail -->
+        <a
+          v-if="record.hasImage"
+          :href="recordImageUrl(record.id)"
+          target="_blank"
+          rel="noopener"
+          class="block mb-2"
+          @click.stop
+        >
+          <img
+            :src="recordImageUrl(record.id)"
+            class="w-full max-h-48 object-cover rounded border border-gray-200"
+            alt="Competition image"
+            loading="lazy"
+          />
+        </a>
 
         <!-- Competition name + date -->
         <p class="text-sm text-gray-800 font-medium mb-1.5">{{ record.competitionName }}</p>
