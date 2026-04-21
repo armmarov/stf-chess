@@ -8,10 +8,16 @@ const props = defineProps<{
   fen: string
   orientation: 'white' | 'black'
   lastMove?: [string, string]
+  arrow?: [string, string] | null
 }>()
 
 const el = ref<HTMLElement>()
 let ground: Api | null = null
+
+function toShapes(arrow: [string, string] | null | undefined) {
+  if (!arrow) return []
+  return [{ orig: arrow[0] as Key, dest: arrow[1] as Key, brush: 'green' }]
+}
 
 onMounted(() => {
   if (!el.value) return
@@ -21,6 +27,11 @@ onMounted(() => {
     viewOnly: true,
     coordinates: true,
     lastMove: props.lastMove as [Key, Key] | undefined,
+    drawable: {
+      enabled: false,
+      visible: true,
+      shapes: toShapes(props.arrow),
+    },
   })
 })
 
@@ -30,12 +41,15 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  () => [props.fen, props.orientation, props.lastMove] as const,
-  ([fen, orientation, lastMove]) => {
+  () => [props.fen, props.orientation, props.lastMove, props.arrow] as const,
+  ([fen, orientation, lastMove, arrow]) => {
     ground?.set({
       fen,
       orientation,
       lastMove: lastMove as [Key, Key] | undefined,
+      drawable: {
+        shapes: toShapes(arrow),
+      },
     })
   },
 )

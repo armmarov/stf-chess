@@ -28,6 +28,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,webp,woff2}'],
+        // Exclude large Stockfish engine files from the precache — loaded on demand.
+        globIgnores: ['stockfish.js', 'stockfish.worker.js', 'stockfish.wasm'],
         // Do NOT cache API responses — always go to network so auth cookies +
         // real-time data behave correctly. Only app shell + static assets are cached.
         navigateFallback: '/index.html',
@@ -47,6 +49,14 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+  // Stockfish.wasm uses SharedArrayBuffer (pthreads). Cross-origin isolation is
+  // required in all browsing contexts. Production server must mirror these headers.
+  server: {
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
     },
   },
 })

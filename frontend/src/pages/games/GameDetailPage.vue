@@ -6,6 +6,7 @@ import { useGameStore } from '@/stores/gameStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { useConfirm } from '@/composables/useConfirm'
+import { useStockfish } from '@/composables/useStockfish'
 import { RESULT_DISPLAY, RESULT_COLORS } from '@/api/games'
 import { formatDate } from '@/utils/format'
 import ChessBoard from '@/components/ChessBoard.vue'
@@ -20,6 +21,7 @@ const gameStore = useGameStore()
 const auth = useAuthStore()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
+const stockfish = useStockfish()
 
 const id = route.params.id as string
 const game = computed(() => gameStore.current)
@@ -76,7 +78,6 @@ function loadPgn(pgn: string) {
     fenArray.value = fens
     verboseMoves.value = moves
   } catch {
-    // Malformed PGN — just show starting position
     fenArray.value = [STARTING_FEN]
     verboseMoves.value = []
   }
@@ -140,6 +141,69 @@ watch(currentPly, () => {
     const el = moveListEl.value?.querySelector<HTMLElement>('[data-current="true"]')
     el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   })
+})
+
+// ── Stockfish analysis ──
+const analyzeMode = ref(false)
+
+// Best-move arrow for ChessBoard
+const arrow = computed((): [string, string] | null => {
+  if (!analyzeMode.value || !stockfish.bestMove.value) return null
+  const bm = stockfish.bestMove.value
+  return [bm.slice(0, 2), bm.slice(2, 4)]
+})
+
+// Sigmoid: 0-100 from black's total win to white's
+const evalPercent = computed(() => {
+  if (stockfish.evalCp.value === null) return 50
+  return Math.round(50 + (Math.atan(stockfish.evalCp.value / 300) / Math.PI) * 100)
+})
+
+const evalDisplay = computed(() => {
+  if (!analyzeMode.value) return ''
+  if (stockfish.evalCp.value === null) return '…'
+  const cp = stockfish.evalCp.value
+  if (cp >= 30000) return 'M+'
+  if (cp <= -30000) return 'M-'
+  const v = (Math.abs(cp) / 100).toFixed(1)
+  return cp >= 0 ? `+${v}` : `-${v}`
+})
+
+// PV as SAN notation (first 5 moves), computed from current FEN
+const pvSan = computed(() => {
+  if (!analyzeMode.value || !stockfish.pvUci.value.length) return []
+  try {
+    const chess = new Chess(currentFen.value)
+    const sans: string[] = []
+    for (const uci of stockfish.pvUci.value.slice(0, 5)) {
+      const from = uci.slice(0, 2)
+      const to = uci.slice(2, 4)
+      const promotion = uci[4] as 'q' | 'r' | 'b' | 'n' | undefined
+      const move = chess.move({ from, to, promotion })
+      if (!move) break
+      sans.push(move.san)
+    }
+    return sans
+  } catch {
+    return []
+  }
+})
+
+function toggleAnalysis() {
+  analyzeMode.value = !analyzeMode.value
+  if (analyzeMode.value) {
+    stockfish.analyzePosition(currentFen.value)
+  } else {
+    stockfish.stop()
+  }
+}
+
+// Re-analyze when position changes while analysis is active (300ms debounce)
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+watch(currentFen, (fen) => {
+  if (!analyzeMode.value) return
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => stockfish.analyzePosition(fen), 300)
 })
 
 // ── Admin actions ──
@@ -232,9 +296,9 @@ onMounted(() => gameStore.fetchGame(id))
           </span>
         </div>
 
-        <ChessBoard :fen="currentFen" :orientation="orientation" :last-move="lastMove" />
+        <ChessBoard :fen="currentFen" :orientation="orientation" :last-move="lastMove" :arrow="arrow" />
 
-        <!-- Nav + flip -->
+        <!-- Nav + flip + analyze -->
         <div class="flex items-center justify-center gap-2">
           <button
             class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 transition-colors text-gray-700"
@@ -275,6 +339,55 @@ onMounted(() => gameStore.fetchGame(id))
           >
             <AppIcon name="arrows-up-down" class="h-4 w-4" />
           </button>
+          <!-- divider -->
+          <div class="w-px h-6 bg-gray-200 ml-1" />
+          <button
+            class="p-2 rounded-lg border transition-colors"
+            :class="analyzeMode
+              ? 'bg-indigo-600 border-indigo-600 text-white'
+              : 'border-gray-200 hover:bg-gray-50 text-gray-700'"
+            title="Toggle Stockfish analysis"
+            @click="toggleAnalysis"
+          >
+            <AppIcon name="cpu" class="h-4 w-4" />
+          </button>
+        </div>
+
+        <!-- Eval bar + PV (visible when analyze mode is on) -->
+        <div v-if="analyzeMode" class="border-t border-gray-100 pt-3 flex flex-col gap-1.5">
+          <div v-if="stockfish.engineError.value" class="text-xs text-amber-600 text-center py-1">
+            Analysis unavailable — page requires cross-origin isolation headers.
+          </div>
+          <template v-else>
+            <!-- Eval number + status -->
+            <div class="flex items-center gap-2">
+              <span
+                class="text-sm font-mono font-semibold w-14 shrink-0"
+                :class="stockfish.evalCp.value !== null && stockfish.evalCp.value < 0 ? 'text-indigo-700' : 'text-gray-900'"
+              >
+                {{ evalDisplay }}
+              </span>
+              <span v-if="stockfish.analyzing.value" class="text-xs text-gray-400">
+                analyzing…
+              </span>
+              <span v-else-if="stockfish.searchDepth.value > 0" class="text-xs text-gray-400">
+                depth {{ stockfish.searchDepth.value }}
+              </span>
+            </div>
+
+            <!-- Horizontal eval bar: black left (dark), white right (light) -->
+            <div class="h-2 rounded-full overflow-hidden flex bg-gray-100">
+              <div
+                class="bg-gray-900 transition-all duration-500 ease-out"
+                :style="{ width: `${100 - evalPercent}%` }"
+              />
+            </div>
+
+            <!-- PV line -->
+            <p v-if="pvSan.length" class="text-xs text-gray-600 font-mono truncate">
+              {{ pvSan.join(' ') }}
+            </p>
+          </template>
         </div>
       </div>
 
