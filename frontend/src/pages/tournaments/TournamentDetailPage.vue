@@ -5,7 +5,7 @@ import { useTournamentStore } from '@/stores/tournamentStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { useConfirm } from '@/composables/useConfirm'
-import { tournamentImageUrl } from '@/api/tournaments'
+import { tournamentImageUrl, tournamentLetterUrl } from '@/api/tournaments'
 import { formatDate } from '@/utils/format'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -144,6 +144,53 @@ onMounted(() => tournamentStore.fetchTournament(id))
               >
                 Register now
                 <AppIcon name="link" class="h-3.5 w-3.5" />
+              </a>
+            </dd>
+          </div>
+
+          <div v-if="tournament.resultUrl">
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5 mb-1.5">
+              <AppIcon name="trophy" class="h-3.5 w-3.5" />
+              Chess Result
+            </dt>
+            <dd>
+              <a
+                :href="tournament.resultUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline"
+              >
+                View results
+                <AppIcon name="link" class="h-3.5 w-3.5" />
+              </a>
+            </dd>
+          </div>
+
+          <div v-if="tournament.hasBskkLetter || tournament.hasKpmLetter">
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5 mb-1.5">
+              <AppIcon name="download" class="h-3.5 w-3.5" />
+              Letters
+            </dt>
+            <dd class="flex flex-wrap gap-2">
+              <a
+                v-if="tournament.hasBskkLetter"
+                :href="tournamentLetterUrl(tournament.id, 'bskk')"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline"
+              >
+                <AppIcon name="download" class="h-3.5 w-3.5" />
+                BSKK Pre-Approval
+              </a>
+              <a
+                v-if="tournament.hasKpmLetter"
+                :href="tournamentLetterUrl(tournament.id, 'kpm')"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline"
+              >
+                <AppIcon name="download" class="h-3.5 w-3.5" />
+                KPM Recognition
               </a>
             </dd>
           </div>

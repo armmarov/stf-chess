@@ -178,6 +178,9 @@ model Tournament {
   imagePath        String?   @map("image_path")
   place            String?   @db.VarChar(200)
   registrationLink String?   @map("registration_link")
+  bskkLetterPath   String?   @map("bskk_letter_path")
+  kpmLetterPath    String?   @map("kpm_letter_path")
+  resultUrl        String?   @map("result_url")
   startDate        DateTime? @map("start_date") @db.Date
   endDate          DateTime? @map("end_date") @db.Date
   createdById      String    @map("created_by_id")

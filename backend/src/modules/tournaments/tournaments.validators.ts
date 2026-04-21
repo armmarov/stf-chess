@@ -9,6 +9,10 @@ export const createTournamentSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.string().url('Invalid URL').optional(),
   ),
+  resultUrl: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().url('Invalid URL').optional(),
+  ),
   startDate: dateString.optional(),
   endDate: dateString.optional(),
   place: z.string().min(1).max(200).optional(),
@@ -30,6 +34,12 @@ export const updateTournamentSchema = z.object({
     dateString.nullable().optional(),
   ),
   removeImage: z.string().optional(),
+  removeBskkLetter: z.string().optional(),
+  removeKpmLetter: z.string().optional(),
+  resultUrl: z.preprocess(
+    (v) => (v === '' ? null : v),
+    z.string().url('Invalid URL').nullable().optional(),
+  ),
   place: z.preprocess(
     (v) => (v === '' ? null : v),
     z.string().min(1).max(200).nullable().optional(),

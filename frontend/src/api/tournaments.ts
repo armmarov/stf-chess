@@ -13,8 +13,11 @@ export interface Tournament {
   startDate: string
   endDate: string | null
   registrationLink: string | null
+  resultUrl: string | null
   place: string | null
   hasImage: boolean
+  hasBskkLetter: boolean
+  hasKpmLetter: boolean
   interestCount: number
   myInterested?: boolean
   // Only present in GET /tournaments/:id (detail)
@@ -31,7 +34,10 @@ export interface CreateTournamentBody {
   endDate?: string
   place?: string
   registrationLink?: string
+  resultUrl?: string
   image?: File
+  bskkLetter?: File
+  kpmLetter?: File
 }
 
 export interface UpdateTournamentBody {
@@ -41,14 +47,26 @@ export interface UpdateTournamentBody {
   endDate?: string | null
   place?: string | null
   registrationLink?: string | null
+  resultUrl?: string | null
   image?: File
+  bskkLetter?: File
+  kpmLetter?: File
   removeImage?: boolean
+  removeBskkLetter?: boolean
+  removeKpmLetter?: boolean
+}
+
+function apiOrigin(): string {
+  const base = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
+  return new URL(base).origin
 }
 
 export function tournamentImageUrl(id: string): string {
-  const base = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
-  const origin = new URL(base).origin
-  return `${origin}/api/tournaments/${id}/image`
+  return `${apiOrigin()}/api/tournaments/${id}/image`
+}
+
+export function tournamentLetterUrl(id: string, which: 'bskk' | 'kpm'): string {
+  return `${apiOrigin()}/api/tournaments/${id}/letter/${which}`
 }
 
 export async function listTournaments(): Promise<Tournament[]> {
@@ -69,7 +87,10 @@ export async function createTournament(body: CreateTournamentBody): Promise<Tour
   if (body.endDate) form.append('endDate', body.endDate)
   if (body.place) form.append('place', body.place)
   if (body.registrationLink) form.append('registrationLink', body.registrationLink)
+  if (body.resultUrl) form.append('resultUrl', body.resultUrl)
   if (body.image) form.append('image', body.image)
+  if (body.bskkLetter) form.append('bskkLetter', body.bskkLetter)
+  if (body.kpmLetter) form.append('kpmLetter', body.kpmLetter)
   const { data } = await apiClient.post<{ tournament: Tournament }>('/tournaments', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
@@ -84,8 +105,13 @@ export async function updateTournament(id: string, body: UpdateTournamentBody): 
   if (body.endDate !== undefined) form.append('endDate', body.endDate ?? '')
   if (body.place !== undefined) form.append('place', body.place ?? '')
   if (body.registrationLink !== undefined) form.append('registrationLink', body.registrationLink ?? '')
+  if (body.resultUrl !== undefined) form.append('resultUrl', body.resultUrl ?? '')
   if (body.image) form.append('image', body.image)
+  if (body.bskkLetter) form.append('bskkLetter', body.bskkLetter)
+  if (body.kpmLetter) form.append('kpmLetter', body.kpmLetter)
   if (body.removeImage) form.append('removeImage', 'true')
+  if (body.removeBskkLetter) form.append('removeBskkLetter', 'true')
+  if (body.removeKpmLetter) form.append('removeKpmLetter', 'true')
   const { data } = await apiClient.patch<{ tournament: Tournament }>(`/tournaments/${id}`, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })

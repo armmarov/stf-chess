@@ -62,6 +62,25 @@ export const tournamentImageUpload = multer({
   },
 }).single('image');
 
+// Tournament multi-field upload: image (image/*) + bskkLetter / kpmLetter (PDF).
+export const tournamentFilesUpload = multer({
+  storage: tournamentStorage,
+  limits: { fileSize: MAX_SIZE_BYTES },
+  fileFilter: (_req: Request, file, cb: multer.FileFilterCallback) => {
+    if (file.fieldname === 'image') {
+      TOURNAMENT_MIMES.has(file.mimetype) ? cb(null, true) : cb(new Error('INVALID_IMAGE_MIME'));
+    } else if (file.fieldname === 'bskkLetter' || file.fieldname === 'kpmLetter') {
+      file.mimetype === 'application/pdf' ? cb(null, true) : cb(new Error('INVALID_LETTER_MIME'));
+    } else {
+      cb(new Error('UNEXPECTED_FIELD'));
+    }
+  },
+}).fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'bskkLetter', maxCount: 1 },
+  { name: 'kpmLetter', maxCount: 1 },
+]);
+
 // Competition record image upload (JPEG / PNG / WebP)
 const recordStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {

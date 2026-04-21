@@ -1,7 +1,7 @@
 import path from 'path';
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../../middleware/errorHandler';
-import { tournamentImageUpload } from '../../middleware/uploadMiddleware';
+import { tournamentFilesUpload } from '../../middleware/uploadMiddleware';
 import {
   createTournamentSchema,
   updateTournamentSchema,
@@ -14,6 +14,7 @@ import {
   updateTournament,
   deleteTournament,
   getImageFile,
+  getLetterFile,
   toggleInterest,
 } from './tournaments.service';
 
@@ -40,9 +41,12 @@ export async function getOne(req: Request, res: Response, next: NextFunction): P
 export function create(req: Request, res: Response, next: NextFunction): void {
   if (req.user!.role !== 'admin') { next(new AppError(403, 'Forbidden')); return; }
 
-  tournamentImageUpload(req, res, async (err) => {
-    if (err?.message === 'INVALID_MIME') {
-      next(new AppError(400, 'Invalid file type. Allowed: JPEG, PNG, WebP')); return;
+  tournamentFilesUpload(req, res, async (err) => {
+    if (err?.message === 'INVALID_IMAGE_MIME') {
+      next(new AppError(400, 'Image must be JPEG, PNG, or WebP')); return;
+    }
+    if (err?.message === 'INVALID_LETTER_MIME') {
+      next(new AppError(400, 'Letter files must be PDF')); return;
     }
     if (err?.code === 'LIMIT_FILE_SIZE') {
       next(new AppError(400, 'File exceeds 5 MB limit')); return;
@@ -52,7 +56,7 @@ export function create(req: Request, res: Response, next: NextFunction): void {
     try {
       const parsed = createTournamentSchema.safeParse(req.body);
       if (!parsed.success) { next(parsed.error); return; }
-      const tournament = await createTournament(parsed.data, req.user!.id, req.file);
+      const tournament = await createTournament(parsed.data, req.user!.id, req.files as unknown as { [field: string]: Express.Multer.File[] });
       res.status(201).json({ tournament });
     } catch (e) { next(e); }
   });
@@ -61,9 +65,12 @@ export function create(req: Request, res: Response, next: NextFunction): void {
 export function update(req: Request, res: Response, next: NextFunction): void {
   if (req.user!.role !== 'admin') { next(new AppError(403, 'Forbidden')); return; }
 
-  tournamentImageUpload(req, res, async (err) => {
-    if (err?.message === 'INVALID_MIME') {
-      next(new AppError(400, 'Invalid file type. Allowed: JPEG, PNG, WebP')); return;
+  tournamentFilesUpload(req, res, async (err) => {
+    if (err?.message === 'INVALID_IMAGE_MIME') {
+      next(new AppError(400, 'Image must be JPEG, PNG, or WebP')); return;
+    }
+    if (err?.message === 'INVALID_LETTER_MIME') {
+      next(new AppError(400, 'Letter files must be PDF')); return;
     }
     if (err?.code === 'LIMIT_FILE_SIZE') {
       next(new AppError(400, 'File exceeds 5 MB limit')); return;
@@ -73,7 +80,7 @@ export function update(req: Request, res: Response, next: NextFunction): void {
     try {
       const parsed = updateTournamentSchema.safeParse(req.body);
       if (!parsed.success) { next(parsed.error); return; }
-      const tournament = await updateTournament(req.params.id, parsed.data, req.file);
+      const tournament = await updateTournament(req.params.id, parsed.data, req.files as unknown as { [field: string]: Express.Multer.File[] });
       res.json({ tournament });
     } catch (e) { next(e); }
   });
@@ -93,6 +100,17 @@ export async function downloadImage(req: Request, res: Response, next: NextFunct
     const ext = path.extname(filename).toLowerCase();
     const contentType = IMAGE_MIME_MAP[ext] ?? 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.sendFile(filePath);
+  } catch (err) { next(err); }
+}
+
+export async function downloadLetter(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const which = req.params.which === 'kpm' ? 'kpm' : req.params.which === 'bskk' ? 'bskk' : null;
+    if (!which) { next(new AppError(404, 'Unknown letter')); return; }
+    const { filePath, filename } = await getLetterFile(req.params.id, which);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.sendFile(filePath);
   } catch (err) { next(err); }

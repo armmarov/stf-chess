@@ -21,7 +21,7 @@ function tryDeleteFile(filePath: string) {
   }
 }
 
-function toImagePath(file: Express.Multer.File): string {
+function toRelativePath(file: Express.Multer.File): string {
   return path.relative(UPLOADS_DIR, file.path);
 }
 
@@ -31,6 +31,9 @@ const TOURNAMENT_SELECT = {
   description: true,
   imagePath: true,
   registrationLink: true,
+  bskkLetterPath: true,
+  kpmLetterPath: true,
+  resultUrl: true,
   startDate: true,
   endDate: true,
   place: true,
@@ -38,10 +41,42 @@ const TOURNAMENT_SELECT = {
   updatedAt: true,
 } as const;
 
-// Strip internal imagePath from API responses and expose a boolean hasImage flag.
-function toPublic<T extends { imagePath: string | null }>(row: T): Omit<T, 'imagePath'> & { hasImage: boolean } {
-  const { imagePath, ...rest } = row;
-  return { ...rest, hasImage: imagePath !== null };
+type TournamentRow = {
+  imagePath: string | null;
+  bskkLetterPath: string | null;
+  kpmLetterPath: string | null;
+  [k: string]: unknown;
+};
+
+// Strip internal file paths; expose boolean has-* flags.
+function toPublic<T extends TournamentRow>(row: T) {
+  const { imagePath, bskkLetterPath, kpmLetterPath, ...rest } = row;
+  return {
+    ...rest,
+    hasImage: imagePath !== null,
+    hasBskkLetter: bskkLetterPath !== null,
+    hasKpmLetter: kpmLetterPath !== null,
+  };
+}
+
+type TournamentFiles = {
+  image?: Express.Multer.File;
+  bskkLetter?: Express.Multer.File;
+  kpmLetter?: Express.Multer.File;
+};
+
+function pickFile(files: Express.Multer.File[] | undefined): Express.Multer.File | undefined {
+  return files && files.length > 0 ? files[0] : undefined;
+}
+
+function normalizeFiles(raw?: { [field: string]: Express.Multer.File[] } | Express.Multer.File[]): TournamentFiles {
+  if (!raw) return {};
+  if (Array.isArray(raw)) return {};
+  return {
+    image: pickFile(raw.image),
+    bskkLetter: pickFile(raw.bskkLetter),
+    kpmLetter: pickFile(raw.kpmLetter),
+  };
 }
 
 export async function listTournaments(requesterId: string, role: string) {
@@ -98,21 +133,27 @@ export async function getTournament(id: string, requesterId: string, role: strin
 export async function createTournament(
   data: CreateTournamentInput,
   createdById: string,
-  file?: Express.Multer.File,
+  filesRaw?: { [field: string]: Express.Multer.File[] } | Express.Multer.File[] | Express.Multer.File,
 ) {
   ensureTournamentsDir();
-  const imagePath = file ? toImagePath(file) : null;
+  // Backward-compat: old controller passed a single image file.
+  const files = filesRaw && 'fieldname' in (filesRaw as object)
+    ? { image: filesRaw as Express.Multer.File }
+    : normalizeFiles(filesRaw as { [field: string]: Express.Multer.File[] } | undefined);
 
   const t = await prisma.tournament.create({
     data: {
       name: data.name,
       description: data.description,
       registrationLink: data.registrationLink ?? null,
+      resultUrl: data.resultUrl ?? null,
       startDate: data.startDate ? new Date(data.startDate) : null,
       endDate: data.endDate ? new Date(data.endDate) : null,
       place: data.place ?? null,
       createdById,
-      imagePath,
+      imagePath: files.image ? toRelativePath(files.image) : null,
+      bskkLetterPath: files.bskkLetter ? toRelativePath(files.bskkLetter) : null,
+      kpmLetterPath: files.kpmLetter ? toRelativePath(files.kpmLetter) : null,
     },
     select: {
       ...TOURNAMENT_SELECT,
@@ -121,7 +162,6 @@ export async function createTournament(
   });
 
   // Fire-and-forget: notify all active students
-
   prisma.user
     .findMany({ where: { role: 'student', isActive: true }, select: { id: true } })
     .then((students) =>
@@ -142,37 +182,52 @@ export async function createTournament(
 export async function updateTournament(
   id: string,
   data: UpdateTournamentInput,
-  file?: Express.Multer.File,
+  filesRaw?: { [field: string]: Express.Multer.File[] } | Express.Multer.File[] | Express.Multer.File,
 ) {
   const existing = await prisma.tournament.findUnique({ where: { id } });
   if (!existing) throw new AppError(404, 'Tournament not found');
 
-  const removeImage = data.removeImage === 'true';
+  const files = filesRaw && 'fieldname' in (filesRaw as object)
+    ? { image: filesRaw as Express.Multer.File }
+    : normalizeFiles(filesRaw as { [field: string]: Express.Multer.File[] } | undefined);
 
-  const updateData: {
-    name?: string;
-    description?: string;
-    registrationLink?: string | null;
-    startDate?: Date | null;
-    endDate?: Date | null;
-    place?: string | null;
-    imagePath?: string | null;
-  } = {};
+  const removeImage = data.removeImage === 'true';
+  const removeBskk = data.removeBskkLetter === 'true';
+  const removeKpm = data.removeKpmLetter === 'true';
+
+  const updateData: Record<string, unknown> = {};
 
   if (data.name !== undefined) updateData.name = data.name;
   if (data.description !== undefined) updateData.description = data.description;
   if (data.registrationLink !== undefined) updateData.registrationLink = data.registrationLink;
+  if (data.resultUrl !== undefined) updateData.resultUrl = data.resultUrl;
   if (data.startDate !== undefined) updateData.startDate = data.startDate ? new Date(data.startDate) : null;
   if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
   if (data.place !== undefined) updateData.place = data.place;
 
+  ensureTournamentsDir();
   if (removeImage) {
     if (existing.imagePath) tryDeleteFile(path.join(UPLOADS_DIR, existing.imagePath));
     updateData.imagePath = null;
-  } else if (file) {
+  } else if (files.image) {
     if (existing.imagePath) tryDeleteFile(path.join(UPLOADS_DIR, existing.imagePath));
-    ensureTournamentsDir();
-    updateData.imagePath = toImagePath(file);
+    updateData.imagePath = toRelativePath(files.image);
+  }
+
+  if (removeBskk) {
+    if (existing.bskkLetterPath) tryDeleteFile(path.join(UPLOADS_DIR, existing.bskkLetterPath));
+    updateData.bskkLetterPath = null;
+  } else if (files.bskkLetter) {
+    if (existing.bskkLetterPath) tryDeleteFile(path.join(UPLOADS_DIR, existing.bskkLetterPath));
+    updateData.bskkLetterPath = toRelativePath(files.bskkLetter);
+  }
+
+  if (removeKpm) {
+    if (existing.kpmLetterPath) tryDeleteFile(path.join(UPLOADS_DIR, existing.kpmLetterPath));
+    updateData.kpmLetterPath = null;
+  } else if (files.kpmLetter) {
+    if (existing.kpmLetterPath) tryDeleteFile(path.join(UPLOADS_DIR, existing.kpmLetterPath));
+    updateData.kpmLetterPath = toRelativePath(files.kpmLetter);
   }
 
   const t = await prisma.tournament.update({
@@ -194,6 +249,8 @@ export async function deleteTournament(id: string) {
   if (!existing) throw new AppError(404, 'Tournament not found');
 
   if (existing.imagePath) tryDeleteFile(path.join(UPLOADS_DIR, existing.imagePath));
+  if (existing.bskkLetterPath) tryDeleteFile(path.join(UPLOADS_DIR, existing.bskkLetterPath));
+  if (existing.kpmLetterPath) tryDeleteFile(path.join(UPLOADS_DIR, existing.kpmLetterPath));
 
   await prisma.tournament.delete({ where: { id } });
 }
@@ -202,10 +259,21 @@ export async function getImageFile(id: string) {
   const t = await prisma.tournament.findUnique({ where: { id }, select: { imagePath: true } });
   if (!t) throw new AppError(404, 'Tournament not found');
   if (!t.imagePath) throw new AppError(404, 'No image for this tournament');
-
   const filePath = path.join(UPLOADS_DIR, t.imagePath);
   if (!fs.existsSync(filePath)) throw new AppError(404, 'Image file not found');
+  return { filePath, filename: path.basename(filePath) };
+}
 
+export async function getLetterFile(id: string, which: 'bskk' | 'kpm') {
+  const t = await prisma.tournament.findUnique({
+    where: { id },
+    select: { bskkLetterPath: true, kpmLetterPath: true },
+  });
+  if (!t) throw new AppError(404, 'Tournament not found');
+  const stored = which === 'bskk' ? t.bskkLetterPath : t.kpmLetterPath;
+  if (!stored) throw new AppError(404, `No ${which.toUpperCase()} letter for this tournament`);
+  const filePath = path.join(UPLOADS_DIR, stored);
+  if (!fs.existsSync(filePath)) throw new AppError(404, 'Letter file not found');
   return { filePath, filename: path.basename(filePath) };
 }
 
