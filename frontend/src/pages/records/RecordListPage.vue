@@ -17,6 +17,9 @@ const router = useRouter()
 const selectedStudentId = ref<string>('')
 const lightboxUrl = ref<string | null>(null)
 
+const isStudent = computed(() => auth.user?.role === 'student')
+const studentTab = ref<'mine' | 'all'>('mine')
+
 function openLightbox(url: string) {
   lightboxUrl.value = url
 }
@@ -65,11 +68,16 @@ function placementColorClass(p: number | null): string {
 }
 
 async function loadList() {
-  const filter = selectedStudentId.value ? { studentId: selectedStudentId.value } : undefined
+  let filter: { studentId?: string } | undefined
+  if (isStudent.value) {
+    filter = studentTab.value === 'mine' ? { studentId: auth.user!.id } : undefined
+  } else {
+    filter = selectedStudentId.value ? { studentId: selectedStudentId.value } : undefined
+  }
   await recordStore.fetchList(filter)
 }
 
-watch(selectedStudentId, loadList)
+watch([selectedStudentId, studentTab], loadList)
 
 onMounted(async () => {
   const tasks: Promise<unknown>[] = [loadList()]
@@ -94,8 +102,26 @@ onMounted(async () => {
       </AppButton>
     </div>
 
-    <!-- Student filter (not shown to students — they only have their own) -->
-    <div v-if="auth.user?.role !== 'student'" class="mb-4">
+    <!-- Student tabs (students only): Mine / All -->
+    <div v-if="isStudent" class="flex gap-1 bg-gray-100 rounded-lg p-1 mb-4">
+      <button
+        class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+        :class="studentTab === 'mine' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+        @click="studentTab = 'mine'"
+      >
+        Mine
+      </button>
+      <button
+        class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+        :class="studentTab === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+        @click="studentTab = 'all'"
+      >
+        All
+      </button>
+    </div>
+
+    <!-- Admin/teacher filter dropdown -->
+    <div v-else class="mb-4">
       <label class="text-sm font-medium text-gray-700 block mb-1">Filter by student</label>
       <select
         v-model="selectedStudentId"
