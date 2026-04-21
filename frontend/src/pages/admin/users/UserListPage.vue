@@ -24,6 +24,7 @@ const tabs: { label: string; value: RoleTab }[] = [
 
 const activeTab = ref<RoleTab>('all')
 const showInactive = ref(false)
+const searchQuery = ref('')
 
 const query = computed(() => ({
   role: activeTab.value === 'all' ? undefined : activeTab.value,
@@ -31,7 +32,17 @@ const query = computed(() => ({
 }))
 
 const cacheKey = computed(() => userStore.cacheKey(query.value))
-const users = computed(() => userStore.listCache[cacheKey.value] ?? [])
+const users = computed(() => {
+  const all = userStore.listCache[cacheKey.value] ?? []
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return all
+  return all.filter(
+    (u) =>
+      u.name.toLowerCase().includes(q) ||
+      u.username.toLowerCase().includes(q) ||
+      (u.className ?? '').toLowerCase().includes(q),
+  )
+})
 
 async function load() {
   try {
@@ -79,6 +90,25 @@ const roleBadge: Record<Role, string> = {
         @click="activeTab = tab.value"
       >
         {{ tab.label }}
+      </button>
+    </div>
+
+    <!-- Search -->
+    <div class="relative mb-3">
+      <AppIcon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="Search by name, username, or class…"
+        class="w-full pl-9 pr-9 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+      />
+      <button
+        v-if="searchQuery"
+        class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+        aria-label="Clear search"
+        @click="searchQuery = ''"
+      >
+        <AppIcon name="x-mark" class="h-4 w-4" />
       </button>
     </div>
 
