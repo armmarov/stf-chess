@@ -26,15 +26,17 @@ async function ensureEngine(): Promise<SF> {
   await loadStockfishScript()
 
   if (!engine) {
+    // stockfish.wasm (niklasf v0.10) factory returns a Promise that resolves
+    // to the Module once the WASM is instantiated — await before calling
+    // addMessageListener / postMessage.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    engine = (window as any).Stockfish({ locateFile: (f: string) => '/' + f })
+    engine = await (window as any).Stockfish({ locateFile: (f: string) => '/' + f })
     engine.addMessageListener((line: string) => {
       if (line === 'readyok') {
         engineReady = true
-        pendingReady.splice(0).forEach(cb => cb())
+        pendingReady.splice(0).forEach((cb) => cb())
       }
     })
-    await engine.ready
     engine.postMessage('uci')
     engine.postMessage('isready')
   }
