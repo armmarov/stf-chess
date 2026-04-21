@@ -25,7 +25,12 @@ const allStudents = computed(() => userStore.listCache[cacheKey.value] ?? [])
 const students = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return allStudents.value
-  return allStudents.value.filter((s) => s.name.toLowerCase().includes(q))
+  return allStudents.value.filter(
+    (s) =>
+      s.name.toLowerCase().includes(q) ||
+      s.username.toLowerCase().includes(q) ||
+      (s.className ?? '').toLowerCase().includes(q),
+  )
 })
 
 async function load() {
@@ -59,7 +64,7 @@ onMounted(load)
       <input
         v-model="searchQuery"
         type="search"
-        placeholder="Search by name…"
+        placeholder="Search by name, username, or class…"
         class="block w-full rounded border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500 pl-8"
       />
     </div>
