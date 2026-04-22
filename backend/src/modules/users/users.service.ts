@@ -4,6 +4,7 @@ import prisma from '../../utils/prisma';
 import { AppError } from '../../middleware/errorHandler';
 import { CreateUserInput, UpdateUserInput, ListUsersQuery } from './users.validators';
 import { Role } from '../../types';
+import { fetchFideRatings } from './fide-rating';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -18,6 +19,12 @@ const USER_SELECT = {
   createdAt: true,
   lastLoginAt: true,
   lastLoginIp: true,
+  fideId: true,
+  mcfId: true,
+  fideStandardRating: true,
+  fideRapidRating: true,
+  fideBlitzRating: true,
+  fideRatingFetchedAt: true,
 } as const;
 
 function handleUniqueViolation(err: unknown): never {
@@ -80,15 +87,58 @@ export async function updateUser(id: string, data: UpdateUserInput) {
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing) throw new AppError(404, 'User not found');
 
+  // If the FIDE id is being changed (set or cleared) we invalidate the cached
+  // rating numbers — they refer to the old id.
+  const patch: Record<string, unknown> = { ...data };
+  const fideIdChanged = data.fideId !== undefined && data.fideId !== existing.fideId;
+  if (fideIdChanged) {
+    patch.fideStandardRating = null;
+    patch.fideRapidRating = null;
+    patch.fideBlitzRating = null;
+    patch.fideRatingFetchedAt = null;
+  }
+
+  let updated;
   try {
-    return await prisma.user.update({
+    updated = await prisma.user.update({
       where: { id },
-      data,
+      data: patch,
       select: USER_SELECT,
     });
   } catch (err) {
     handleUniqueViolation(err);
   }
+
+  // Fire-and-forget: if a FIDE id is now set (changed or newly added), scrape
+  // the rating and persist. Don't block the response on it.
+  if (fideIdChanged && updated?.fideId) {
+    void refreshFideRating(id).catch((err) => {
+      console.error(`[fide] auto-refresh failed for user ${id}:`, err);
+    });
+  }
+
+  return updated;
+}
+
+export async function refreshFideRating(userId: string) {
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { fideId: true },
+  });
+  if (!u) throw new AppError(404, 'User not found');
+  if (!u.fideId) throw new AppError(400, 'User has no FIDE ID set');
+
+  const ratings = await fetchFideRatings(u.fideId);
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      fideStandardRating: ratings.standard,
+      fideRapidRating: ratings.rapid,
+      fideBlitzRating: ratings.blitz,
+      fideRatingFetchedAt: new Date(),
+    },
+    select: USER_SELECT,
+  });
 }
 
 export async function setPassword(id: string, newPassword: string) {

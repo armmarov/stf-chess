@@ -43,6 +43,12 @@ export const updateUserSchema = z.object({
   isActive: z.boolean().optional(),
   role: roleEnum.optional(),
   className: z.enum(CLASS_VALUES).optional(),
+  fideId: z
+    .string()
+    .regex(/^\d{3,10}$/, 'FIDE ID must be 3-10 digits')
+    .nullable()
+    .optional(),
+  mcfId: z.string().max(40).nullable().optional(),
 });
 
 export const listUsersQuerySchema = z.object({

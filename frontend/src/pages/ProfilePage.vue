@@ -6,7 +6,7 @@ import { useToastStore } from '@/stores/toastStore'
 import { changePassword } from '@/api/auth'
 import { CLASS_VALUES } from '@/utils/classNames'
 import type { ClassName } from '@/utils/classNames'
-import type { UpdateUserBody } from '@/api/users'
+import { refreshFideRating, type UpdateUserBody } from '@/api/users'
 import AppInput from '@/components/AppInput.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -21,11 +21,16 @@ const saving = ref(false)
 const name = ref('')
 const phone = ref('')
 const className = ref<ClassName | ''>('')
+const fideId = ref('')
+const mcfId = ref('')
+const refreshingFide = ref(false)
 
 function resetForm() {
   name.value = user.value?.name ?? auth.user?.name ?? ''
   phone.value = user.value?.phone ?? ''
   className.value = user.value?.className ?? ''
+  fideId.value = user.value?.fideId ?? ''
+  mcfId.value = user.value?.mcfId ?? ''
 }
 
 watch(user, (u) => {
@@ -53,6 +58,10 @@ async function handleSave() {
     if (trimmedPhone !== (user.value?.phone ?? null)) patch.phone = trimmedPhone
     const newClass = className.value || null
     if (newClass !== (user.value?.className ?? null)) patch.className = newClass
+    const newFideId = fideId.value.trim() || null
+    if (newFideId !== (user.value?.fideId ?? null)) patch.fideId = newFideId
+    const newMcfId = mcfId.value.trim() || null
+    if (newMcfId !== (user.value?.mcfId ?? null)) patch.mcfId = newMcfId
 
     if (Object.keys(patch).length > 0) {
       await userStore.updateUser(auth.user.id, patch)
@@ -63,6 +72,21 @@ async function handleSave() {
     toastStore.show('Failed to update profile.', 'error')
   } finally {
     saving.value = false
+  }
+}
+
+async function handleRefreshFide() {
+  if (!auth.user?.id || !user.value?.fideId) return
+  refreshingFide.value = true
+  try {
+    const updated = await refreshFideRating(auth.user.id)
+    userStore.current = updated
+    toastStore.show('FIDE rating refreshed.', 'success')
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+    toastStore.show(msg ?? 'Failed to refresh rating.', 'error')
+  } finally {
+    refreshingFide.value = false
   }
 }
 
@@ -154,6 +178,50 @@ async function handleChangePassword() {
             <option v-for="c in CLASS_VALUES" :key="c" :value="c">{{ c }}</option>
           </select>
         </div>
+
+        <AppInput
+          v-model="fideId"
+          label="FIDE ID (optional)"
+          placeholder="e.g. 12828980"
+          autocomplete="off"
+          inputmode="numeric"
+        />
+
+        <!-- FIDE rating chip (read-only, updates after save or manual refresh) -->
+        <div
+          v-if="user?.fideId"
+          class="flex items-center justify-between gap-3 bg-indigo-50 border border-indigo-100 rounded-md px-3 py-2"
+        >
+          <div class="text-xs text-indigo-900 min-w-0">
+            <p class="font-semibold">FIDE Rating</p>
+            <p v-if="user.fideStandardRating || user.fideRapidRating || user.fideBlitzRating" class="mt-0.5">
+              <span v-if="user.fideStandardRating">Std {{ user.fideStandardRating }}</span>
+              <span v-if="user.fideRapidRating">
+                <span v-if="user.fideStandardRating"> · </span>Rapid {{ user.fideRapidRating }}
+              </span>
+              <span v-if="user.fideBlitzRating">
+                <span v-if="user.fideStandardRating || user.fideRapidRating"> · </span>Blitz {{ user.fideBlitzRating }}
+              </span>
+            </p>
+            <p v-else class="mt-0.5 text-indigo-700/70 italic">Not rated yet — tap Refresh.</p>
+          </div>
+          <button
+            type="button"
+            class="shrink-0 inline-flex items-center gap-1 text-xs px-2 py-1 rounded text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+            :disabled="refreshingFide"
+            @click="handleRefreshFide"
+          >
+            <AppIcon name="calendar" class="h-3 w-3" />
+            {{ refreshingFide ? 'Refreshing…' : 'Refresh' }}
+          </button>
+        </div>
+
+        <AppInput
+          v-model="mcfId"
+          label="MCF ID (optional)"
+          placeholder="Malaysian Chess Federation ID"
+          autocomplete="off"
+        />
       </div>
 
       <div class="flex gap-2 pt-1">

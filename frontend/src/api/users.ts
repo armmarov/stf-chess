@@ -13,6 +13,12 @@ export interface User {
   createdAt: string
   lastLoginAt: string | null
   lastLoginIp: string | null
+  fideId: string | null
+  mcfId: string | null
+  fideStandardRating: number | null
+  fideRapidRating: number | null
+  fideBlitzRating: number | null
+  fideRatingFetchedAt: string | null
 }
 
 export interface ListUsersQuery {
@@ -35,6 +41,8 @@ export interface UpdateUserBody {
   phone?: string | null
   isActive?: boolean
   className?: ClassName | null
+  fideId?: string | null
+  mcfId?: string | null
 }
 
 export async function listUsers(query?: ListUsersQuery): Promise<User[]> {
@@ -62,4 +70,9 @@ export async function updateUser(id: string, patch: UpdateUserBody): Promise<Use
 
 export async function setPassword(id: string, newPassword: string): Promise<void> {
   await apiClient.post(`/users/${id}/password`, { newPassword })
+}
+
+export async function refreshFideRating(id: string): Promise<User> {
+  const { data } = await apiClient.post<{ user: User }>(`/users/${id}/refresh-fide-rating`)
+  return data.user
 }

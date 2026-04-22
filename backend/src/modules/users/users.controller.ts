@@ -6,7 +6,7 @@ import {
   listUsersQuerySchema,
   setPasswordSchema,
 } from './users.validators';
-import { listUsers, getUser, createUser, updateUser, setPassword } from './users.service';
+import { listUsers, getUser, createUser, updateUser, setPassword, refreshFideRating } from './users.service';
 import { Role } from '../../types';
 
 export async function list(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -128,5 +128,18 @@ export async function changePassword(
     if (!parsed.success) { next(parsed.error); return; }
     await setPassword(req.params.id, parsed.data.newPassword);
     res.status(204).end();
+  } catch (err) { next(err); }
+}
+
+export async function refreshFide(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const requester = req.user!;
+    // Self or admin can trigger a refresh.
+    if (requester.id !== id && requester.role !== 'admin') {
+      next(new AppError(403, 'Forbidden')); return;
+    }
+    const user = await refreshFideRating(id);
+    res.json({ user });
   } catch (err) { next(err); }
 }
