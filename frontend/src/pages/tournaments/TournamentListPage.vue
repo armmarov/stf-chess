@@ -19,6 +19,17 @@ const isStudent = computed(() => auth.user?.role === 'student')
 
 const activeTab = ref<'upcoming' | 'past'>('upcoming')
 
+function pajskBadgeClass(target: string): string {
+  const map: Record<string, string> = {
+    sekolah: 'bg-gray-100 text-gray-700',
+    daerah: 'bg-blue-100 text-blue-700',
+    negeri: 'bg-purple-100 text-purple-700',
+    kebangsaan: 'bg-orange-100 text-orange-700',
+    antarabangsa: 'bg-red-100 text-red-700',
+  }
+  return map[target] ?? 'bg-green-100 text-green-700'
+}
+
 async function toggleInterest(id: string, currentValue: boolean | undefined) {
   try {
     await tournamentStore.toggleInterest(id, !currentValue)
@@ -143,16 +154,23 @@ const past = computed(() => {
               <div class="flex items-start justify-between gap-3">
                 <div class="flex-1 min-w-0">
                   <p class="font-semibold text-gray-900 text-sm">{{ t.name }}</p>
-                  <div class="flex flex-col items-start gap-1 mt-1.5">
+                  <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
                     <span class="inline-flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5 font-medium">
                       <AppIcon name="calendar" class="h-3 w-3 shrink-0" />
                       {{ formatDate(t.startDate) }}
                     </span>
-                    <span v-if="t.place" class="inline-flex items-center gap-1.5 text-xs text-gray-600 max-w-full">
-                      <AppIcon name="map-pin" class="h-3 w-3 shrink-0 text-gray-400" />
-                      <span class="truncate">{{ t.place }}</span>
+                    <span
+                      v-if="t.targetPajsk && t.targetPajsk !== 'tiada'"
+                      class="inline-flex items-center gap-1 text-xs rounded-full px-2 py-0.5 font-medium capitalize"
+                      :class="pajskBadgeClass(t.targetPajsk)"
+                    >
+                      PAJSK · {{ t.targetPajsk }}
                     </span>
                   </div>
+                  <span v-if="t.place" class="mt-1 inline-flex items-center gap-1.5 text-xs text-gray-600 max-w-full">
+                    <AppIcon name="map-pin" class="h-3 w-3 shrink-0 text-gray-400" />
+                    <span class="truncate">{{ t.place }}</span>
+                  </span>
                   <p v-if="t.description" class="text-sm text-gray-500 mt-1.5 line-clamp-2">{{ t.description }}</p>
                 </div>
                 <span class="text-gray-400 text-sm shrink-0 mt-0.5">→</span>
@@ -196,16 +214,23 @@ const past = computed(() => {
               <div class="flex items-start justify-between gap-3">
                 <div class="flex-1 min-w-0">
                   <p class="font-semibold text-gray-900 text-sm">{{ t.name }}</p>
-                  <div class="flex flex-col items-start gap-1 mt-1.5">
+                  <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
                     <span class="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5 font-medium">
                       <AppIcon name="calendar" class="h-3 w-3 shrink-0" />
                       {{ formatDate(t.startDate) }}
                     </span>
-                    <span v-if="t.place" class="inline-flex items-center gap-1.5 text-xs text-gray-600 max-w-full">
-                      <AppIcon name="map-pin" class="h-3 w-3 shrink-0 text-gray-400" />
-                      <span class="truncate">{{ t.place }}</span>
+                    <span
+                      v-if="t.targetPajsk && t.targetPajsk !== 'tiada'"
+                      class="inline-flex items-center gap-1 text-xs rounded-full px-2 py-0.5 font-medium capitalize"
+                      :class="pajskBadgeClass(t.targetPajsk)"
+                    >
+                      PAJSK · {{ t.targetPajsk }}
                     </span>
                   </div>
+                  <span v-if="t.place" class="mt-1 inline-flex items-center gap-1.5 text-xs text-gray-600 max-w-full">
+                    <AppIcon name="map-pin" class="h-3 w-3 shrink-0 text-gray-400" />
+                    <span class="truncate">{{ t.place }}</span>
+                  </span>
                   <p v-if="t.description" class="text-sm text-gray-500 mt-1.5 line-clamp-2">{{ t.description }}</p>
                 </div>
                 <span class="text-gray-400 text-sm shrink-0 mt-0.5">→</span>
