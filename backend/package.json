@@ -19,6 +19,7 @@
     "@types/pdfkit": "^0.17.6",
     "@types/uuid": "^10.0.0",
     "bcrypt": "^5.1.1",
+    "cheerio": "^1.2.0",
     "chess.js": "^1.4.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
