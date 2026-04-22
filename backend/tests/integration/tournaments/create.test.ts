@@ -2,7 +2,7 @@ import request from 'supertest';
 import { app } from '../../helpers/app';
 import { createUser, loginAs } from '../../helpers/auth';
 import { prisma, resetDb } from '../../helpers/db';
-import { JPEG_BUFFER, PNG_BUFFER, TEXT_BUFFER, OVERSIZED_BUFFER } from '../../helpers/payments';
+import { JPEG_BUFFER, PNG_BUFFER, TEXT_BUFFER, OVERSIZED_BUFFER, PDF_BUFFER } from '../../helpers/payments';
 import {
   cleanTournamentUploads,
   tournamentFileExists,
@@ -95,6 +95,36 @@ describe('POST /api/tournaments', () => {
       expect(res.status).toBe(400);
     });
 
+    it('invalid resultUrl → 400', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent
+        .post(URL)
+        .field('name', 'Test')
+        .field('description', 'Desc')
+        .field('resultUrl', 'not-a-url');
+      expect(res.status).toBe(400);
+    });
+
+    it('PDF uploaded as image field → 400', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent
+        .post(URL)
+        .field('name', 'Test')
+        .field('description', 'Desc')
+        .attach('image', PDF_BUFFER, { filename: 'doc.pdf', contentType: 'application/pdf' });
+      expect(res.status).toBe(400);
+    });
+
+    it('JPEG uploaded as bskkLetter field → 400', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent
+        .post(URL)
+        .field('name', 'Test')
+        .field('description', 'Desc')
+        .attach('bskkLetter', JPEG_BUFFER, { filename: 'not-pdf.jpg', contentType: 'image/jpeg' });
+      expect(res.status).toBe(400);
+    });
+
     it('invalid MIME type for image → 400', async () => {
       const { agent } = await loginAs('admin');
       const res = await agent
@@ -138,7 +168,7 @@ describe('POST /api/tournaments', () => {
       expect(res.body.tournament).toBeDefined();
       expect(res.body.tournament.name).toBe('Chess Open 2025');
       expect(res.body.tournament.description).toBe('Annual chess tournament');
-      expect(res.body.tournament.imagePath).toBeNull();
+      expect(res.body.tournament.hasImage).toBe(false);
       expect(res.body.tournament.interestCount).toBe(0);
 
       const row = await prisma.tournament.findUnique({ where: { id: res.body.tournament.id } });
@@ -154,9 +184,7 @@ describe('POST /api/tournaments', () => {
         .attach('image', JPEG_BUFFER, { filename: 'poster.jpg', contentType: 'image/jpeg' });
 
       expect(res.status).toBe(201);
-      expect(res.body.tournament.imagePath).not.toBeNull();
-      expect(res.body.tournament.imagePath).toMatch(/^tournaments\//);
-      expect(tournamentFileExists(res.body.tournament.imagePath)).toBe(true);
+      expect(res.body.tournament.hasImage).toBe(true);
     });
 
     it('admin creates tournament with PNG image → 201, file saved on disk', async () => {
@@ -168,8 +196,7 @@ describe('POST /api/tournaments', () => {
         .attach('image', PNG_BUFFER, { filename: 'poster.png', contentType: 'image/png' });
 
       expect(res.status).toBe(201);
-      expect(res.body.tournament.imagePath).toMatch(/\.png$/);
-      expect(tournamentFileExists(res.body.tournament.imagePath)).toBe(true);
+      expect(res.body.tournament.hasImage).toBe(true);
     });
 
     it('admin creates tournament with WebP image → 201', async () => {
@@ -233,6 +260,73 @@ describe('POST /api/tournaments', () => {
       expect(res.status).toBe(201);
       expect(res.body.tournament.createdBy).toBeDefined();
       expect(res.body.tournament.createdBy.id).toBe(admin.id);
+    });
+  });
+
+  describe('201 — letter and resultUrl fields', () => {
+    it('creates with bskkLetter PDF only → hasBskkLetter: true, hasKpmLetter: false', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent
+        .post(URL)
+        .field('name', 'BSKK Only')
+        .field('description', 'Desc')
+        .attach('bskkLetter', PDF_BUFFER, { filename: 'bskk.pdf', contentType: 'application/pdf' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.tournament.hasBskkLetter).toBe(true);
+      expect(res.body.tournament.hasKpmLetter).toBe(false);
+    });
+
+    it('creates with kpmLetter PDF only → hasKpmLetter: true, hasBskkLetter: false', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent
+        .post(URL)
+        .field('name', 'KPM Only')
+        .field('description', 'Desc')
+        .attach('kpmLetter', PDF_BUFFER, { filename: 'kpm.pdf', contentType: 'application/pdf' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.tournament.hasKpmLetter).toBe(true);
+      expect(res.body.tournament.hasBskkLetter).toBe(false);
+    });
+
+    it('creates with image + both PDFs → hasImage: true, hasBskkLetter: true, hasKpmLetter: true', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent
+        .post(URL)
+        .field('name', 'Full Files')
+        .field('description', 'Desc')
+        .attach('image', JPEG_BUFFER, { filename: 'poster.jpg', contentType: 'image/jpeg' })
+        .attach('bskkLetter', PDF_BUFFER, { filename: 'bskk.pdf', contentType: 'application/pdf' })
+        .attach('kpmLetter', PDF_BUFFER, { filename: 'kpm.pdf', contentType: 'application/pdf' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.tournament.hasImage).toBe(true);
+      expect(res.body.tournament.hasBskkLetter).toBe(true);
+      expect(res.body.tournament.hasKpmLetter).toBe(true);
+    });
+
+    it('creates with resultUrl → stored and returned', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent
+        .post(URL)
+        .field('name', 'Result URL Tournament')
+        .field('description', 'Desc')
+        .field('resultUrl', 'https://results.example.com/2026');
+
+      expect(res.status).toBe(201);
+      expect(res.body.tournament.resultUrl).toBe('https://results.example.com/2026');
+    });
+
+    it('creates without resultUrl → resultUrl: null', async () => {
+      const { agent } = await loginAs('admin');
+      const res = await agent
+        .post(URL)
+        .field('name', 'No Result')
+        .field('description', 'Desc');
+
+      expect(res.status).toBe(201);
+      expect(res.body.tournament.resultUrl).toBeNull();
     });
   });
 

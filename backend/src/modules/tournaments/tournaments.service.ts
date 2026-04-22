@@ -34,6 +34,7 @@ const TOURNAMENT_SELECT = {
   bskkLetterPath: true,
   kpmLetterPath: true,
   resultUrl: true,
+  targetPajsk: true,
   startDate: true,
   endDate: true,
   place: true,
@@ -147,6 +148,7 @@ export async function createTournament(
       description: data.description,
       registrationLink: data.registrationLink ?? null,
       resultUrl: data.resultUrl ?? null,
+      targetPajsk: data.targetPajsk ?? 'tiada',
       startDate: data.startDate ? new Date(data.startDate) : null,
       endDate: data.endDate ? new Date(data.endDate) : null,
       place: data.place ?? null,
@@ -201,6 +203,7 @@ export async function updateTournament(
   if (data.description !== undefined) updateData.description = data.description;
   if (data.registrationLink !== undefined) updateData.registrationLink = data.registrationLink;
   if (data.resultUrl !== undefined) updateData.resultUrl = data.resultUrl;
+  if (data.targetPajsk !== undefined) updateData.targetPajsk = data.targetPajsk;
   if (data.startDate !== undefined) updateData.startDate = data.startDate ? new Date(data.startDate) : null;
   if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
   if (data.place !== undefined) updateData.place = data.place;

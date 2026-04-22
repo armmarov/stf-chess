@@ -753,11 +753,11 @@ components:
 
     TournamentSummary:
       type: object
-      required: [id, name, description, place, imagePath, registrationLink, startDate, endDate, createdAt, updatedAt, interestCount]
+      required: [id, name, description, place, hasImage, hasBskkLetter, hasKpmLetter, registrationLink, resultUrl, startDate, endDate, createdAt, updatedAt, interestCount]
       description: |
         Tournament shape returned in the list response.
-        `imagePath` is the internal relative path stored in the DB (e.g. `tournaments/<uuid>.jpg`).
-        Use `GET /tournaments/{id}/image` to download the image.
+        Internal file paths (`imagePath`, `bskkLetterPath`, `kpmLetterPath`) are never exposed.
+        Use the dedicated download endpoints to retrieve files.
         `myInterested` is present only for the student role.
       properties:
         id:
@@ -771,15 +771,24 @@ components:
         place:
           type: string
           nullable: true
-          description: "Venue or location for the tournament. Null if unspecified."
-        imagePath:
-          type: string
-          nullable: true
-          description: "Relative path under UPLOADS_DIR (e.g. \"tournaments/uuid.jpg\"). Null if no image."
+          description: Venue or location for the tournament. Null if unspecified.
+        hasImage:
+          type: boolean
+          description: True if a cover image has been uploaded.
+        hasBskkLetter:
+          type: boolean
+          description: True if a BSKK approval letter PDF has been uploaded.
+        hasKpmLetter:
+          type: boolean
+          description: True if a KPM approval letter PDF has been uploaded.
         registrationLink:
           type: string
           nullable: true
           description: External registration URL.
+        resultUrl:
+          type: string
+          nullable: true
+          description: External URL to the chess result sheet. Null if not provided.
         startDate:
           type: string
           format: date-time
@@ -1291,169 +1300,6 @@ components:
           minimum: 0
           description: Time spent on the attempt in milliseconds.
 
-    CompetitionLevel:
-      type: string
-      enum: [sekolah, daerah, negeri, kebangsaan, antarabangsa]
-      description: |
-        Scope / tier of the competition.
-        - `sekolah` — school level
-        - `daerah` — district level
-        - `negeri` — state level
-        - `kebangsaan` — national level
-        - `antarabangsa` — international level
-
-    CompetitionCategory:
-      type: string
-      enum: [u13, u14, u15, u16, u17, u18, u21, open]
-      description: Age-bracket category for the competition.
-
-    RecordStudentSummary:
-      type: object
-      required: [id, name, username]
-      description: Student projection embedded in CompetitionRecord responses.
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        username:
-          type: string
-        className:
-          $ref: '#/components/schemas/ClassName'
-
-    CompetitionRecord:
-      type: object
-      required: [id, competitionName, competitionDate, level, category, pajsk, fideRated, mcfRated, placement, createdAt, updatedAt, student, createdBy]
-      description: |
-        A competition outcome record attached to a student.
-        `competitionDate` is returned as a plain date string (`YYYY-MM-DD`), not a full ISO timestamp.
-        `placement` is an integer 1–30 for a placed result, or null for participation-only.
-      properties:
-        id:
-          type: string
-          format: uuid
-        competitionName:
-          type: string
-          maxLength: 200
-        competitionDate:
-          type: string
-          pattern: '^\d{4}-\d{2}-\d{2}$'
-          description: Date of the competition in YYYY-MM-DD format.
-          example: "2025-09-14"
-        level:
-          $ref: '#/components/schemas/CompetitionLevel'
-        category:
-          $ref: '#/components/schemas/CompetitionCategory'
-        pajsk:
-          type: boolean
-          description: Whether the competition counts toward PAJSK co-curricular marks.
-        fideRated:
-          type: boolean
-          description: Whether the competition is FIDE-rated.
-        mcfRated:
-          type: boolean
-          description: Whether the competition is MCF-rated.
-        placement:
-          type: integer
-          minimum: 1
-          maximum: 30
-          nullable: true
-          description: "Final placement (1 = Champion, 2 = 1st Runner-up, 3 = 2nd Runner-up, 4–30 = ordinal place). Null indicates participation without a placing."
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        student:
-          $ref: '#/components/schemas/RecordStudentSummary'
-        createdBy:
-          $ref: '#/components/schemas/UserSummary'
-
-    CompetitionRecordListResponse:
-      type: object
-      required: [records]
-      properties:
-        records:
-          type: array
-          items:
-            $ref: '#/components/schemas/CompetitionRecord'
-          description: Sorted by competitionDate desc, then createdAt desc.
-
-    CompetitionRecordResponse:
-      type: object
-      required: [record]
-      properties:
-        record:
-          $ref: '#/components/schemas/CompetitionRecord'
-
-    CreateCompetitionRecordRequest:
-      type: object
-      required: [studentId, competitionName, competitionDate, level, category, pajsk, fideRated, mcfRated, placement]
-      properties:
-        studentId:
-          type: string
-          format: uuid
-          description: ID of the student this record belongs to.
-        competitionName:
-          type: string
-          minLength: 1
-          maxLength: 200
-        competitionDate:
-          type: string
-          pattern: '^\d{4}-\d{2}-\d{2}$'
-          description: Date of the competition in YYYY-MM-DD format.
-          example: "2025-09-14"
-        level:
-          $ref: '#/components/schemas/CompetitionLevel'
-        category:
-          $ref: '#/components/schemas/CompetitionCategory'
-        pajsk:
-          type: boolean
-        fideRated:
-          type: boolean
-        mcfRated:
-          type: boolean
-        placement:
-          type: integer
-          minimum: 1
-          maximum: 30
-          nullable: true
-          description: "1–30 for a placed result; null for participation-only."
-
-    UpdateCompetitionRecordRequest:
-      type: object
-      description: |
-        All fields are optional. At least one field must be provided (enforced by server — empty body returns 400).
-        `studentId` is immutable after creation and cannot be changed via PATCH.
-      properties:
-        competitionName:
-          type: string
-          minLength: 1
-          maxLength: 200
-        competitionDate:
-          type: string
-          pattern: '^\d{4}-\d{2}-\d{2}$'
-          description: Date of the competition in YYYY-MM-DD format.
-          example: "2025-09-14"
-        level:
-          $ref: '#/components/schemas/CompetitionLevel'
-        category:
-          $ref: '#/components/schemas/CompetitionCategory'
-        pajsk:
-          type: boolean
-        fideRated:
-          type: boolean
-        mcfRated:
-          type: boolean
-        placement:
-          type: integer
-          minimum: 1
-          maximum: 30
-          nullable: true
-          description: "1–30 for a placed result; null for participation-only."
-
     PuzzleAttemptRecord:
       type: object
       required: [id, status, isFirstTry, movesTaken, timeMs, attemptedOn]
@@ -1533,8 +1379,10 @@ components:
 
     CompetitionRecord:
       type: object
-      required: [id, competitionName, competitionDate, level, category, pajsk, fideRated, mcfRated, placement, student, createdBy, createdAt, updatedAt]
-      description: A student's competition result record.
+      required: [id, competitionName, competitionDate, level, category, pajsk, fideRated, mcfRated, placement, hasImage, student, createdBy, createdAt, updatedAt]
+      description: |
+        A student's competition result record.
+        Internal `imagePath` is never exposed; use `hasImage` + `GET /records/{id}/image` to retrieve the file.
       properties:
         id:
           type: string
@@ -1565,6 +1413,9 @@ components:
           maximum: 30
           nullable: true
           description: Final placing (1 = gold). Null if not recorded.
+        hasImage:
+          type: boolean
+          description: True if a certificate or supporting image has been uploaded for this record.
         student:
           type: object
           required: [id, name, username, className]
@@ -3464,8 +3315,12 @@ paths:
         Creates a new tournament. Admin only.
         Emits a fire-and-forget notification to all active students on creation.
 
-        **Image constraints:** JPEG, PNG, WebP; ≤ 5 MB. Optional.
-        Images are stored under `UPLOADS_DIR/tournaments/` with a UUID filename.
+        **File constraints (all optional):**
+        - `image`: JPEG, PNG, WebP; ≤ 5 MB
+        - `bskkLetter`: PDF; ≤ 5 MB — BSKK approval letter
+        - `kpmLetter`: PDF; ≤ 5 MB — KPM approval letter
+
+        Files are stored under `UPLOADS_DIR/tournaments/`.
       requestBody:
         required: true
         content:
@@ -3490,6 +3345,10 @@ paths:
                   type: string
                   format: uri
                   description: External registration URL. Optional.
+                resultUrl:
+                  type: string
+                  format: uri
+                  description: URL to tournament results page. Optional.
                 startDate:
                   type: string
                   pattern: '^\d{4}-\d{2}-\d{2}$'
@@ -3502,6 +3361,14 @@ paths:
                   type: string
                   format: binary
                   description: "Tournament image. Allowed: JPEG, PNG, WebP. Max 5 MB. Optional."
+                bskkLetter:
+                  type: string
+                  format: binary
+                  description: "BSKK approval letter PDF. Max 5 MB. Optional."
+                kpmLetter:
+                  type: string
+                  format: binary
+                  description: "KPM approval letter PDF. Max 5 MB. Optional."
       responses:
         '201':
           description: Tournament created
@@ -3512,7 +3379,8 @@ paths:
         '400':
           description: |
             Validation or file error:
-            - `"Invalid file type. Allowed: JPEG, PNG, WebP"` — unsupported MIME
+            - `"Image must be JPEG, PNG, or WebP"` — unsupported image MIME
+            - `"Letter files must be PDF"` — non-PDF uploaded for bskkLetter or kpmLetter
             - `"File exceeds 5 MB limit"` — file too large
             - Zod validation error — invalid field values
           content:
@@ -3576,12 +3444,12 @@ paths:
       description: |
         Partially updates a tournament. Admin only. All fields are optional.
 
-        **Image handling:**
-        - Supply a new `image` file to replace the current one (old file deleted from disk).
-        - Send `removeImage=true` (string `"true"`, not boolean) to clear the image without replacement.
-        - Omit both to leave the image unchanged.
+        **File handling (image, bskkLetter, kpmLetter):**
+        - Supply a new file to replace the current one (old file deleted from disk).
+        - Send the corresponding `remove*` flag as the string `"true"` to clear without replacement.
+        - Omit both to leave the file unchanged.
 
-        Sending an empty string for `registrationLink`, `startDate`, or `endDate` clears the field to null.
+        **Clearing scalar fields:** send an empty string for `registrationLink`, `resultUrl`, `startDate`, `endDate`, or `place` to set to null.
       parameters:
         - name: id
           in: path
@@ -3608,13 +3476,16 @@ paths:
                   description: "Venue or location. Empty string to clear → null."
                 registrationLink:
                   type: string
-                  description: "URL or empty string to clear."
+                  description: "URL or empty string to clear → null."
+                resultUrl:
+                  type: string
+                  description: "URL to results page. Empty string to clear → null."
                 startDate:
                   type: string
-                  description: "YYYY-MM-DD or empty string to clear."
+                  description: "YYYY-MM-DD or empty string to clear → null."
                 endDate:
                   type: string
-                  description: "YYYY-MM-DD or empty string to clear."
+                  description: "YYYY-MM-DD or empty string to clear → null."
                 image:
                   type: string
                   format: binary
@@ -3623,6 +3494,22 @@ paths:
                   type: string
                   enum: ['true']
                   description: "Send the string \"true\" to clear the current image without replacement."
+                bskkLetter:
+                  type: string
+                  format: binary
+                  description: "New BSKK approval letter PDF. Replaces existing. Max 5 MB."
+                removeBskkLetter:
+                  type: string
+                  enum: ['true']
+                  description: "Send the string \"true\" to clear the BSKK letter without replacement."
+                kpmLetter:
+                  type: string
+                  format: binary
+                  description: "New KPM approval letter PDF. Replaces existing. Max 5 MB."
+                removeKpmLetter:
+                  type: string
+                  enum: ['true']
+                  description: "Send the string \"true\" to clear the KPM letter without replacement."
       responses:
         '200':
           description: Updated tournament
@@ -3752,6 +3639,69 @@ paths:
                 file_missing:
                   value:
                     error: Image file not found
+
+  /tournaments/{id}/letter/{which}:
+    get:
+      summary: Download a tournament approval letter
+      operationId: downloadTournamentLetter
+      tags: [Tournaments]
+      description: |
+        Streams a PDF approval letter for the tournament. Any authenticated role.
+        `Content-Disposition` is `inline; filename="<stored-filename>"`.
+
+        `which` must be exactly `bskk` or `kpm`; any other value returns 404.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: which
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [bskk, kpm]
+          description: Which letter to download — `bskk` (BSKK approval) or `kpm` (KPM approval).
+      responses:
+        '200':
+          description: PDF file streamed inline
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            Four distinct cases:
+            - `"Unknown letter"` — `which` is not `bskk` or `kpm`
+            - `"Tournament not found"`
+            - `"No BSKK letter for this tournament"` / `"No KPM letter for this tournament"`
+            - `"Letter file not found"` — record exists but file missing on disk
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                unknown_letter:
+                  value:
+                    error: Unknown letter
+                not_found:
+                  value:
+                    error: Tournament not found
+                no_letter:
+                  value:
+                    error: No BSKK letter for this tournament
+                file_missing:
+                  value:
+                    error: Letter file not found
 
   /tournaments/{id}/interest:
     post:
@@ -5015,12 +4965,53 @@ paths:
         - `coach` and other roles: 403.
 
         `createdById` is set server-side to the authenticated user's ID.
+
+        **File constraint:** `image` is optional; JPEG, PNG, or WebP; ≤ 5 MB.
+
+        **Boolean coercion:** `pajsk`, `fideRated`, and `mcfRated` are sent as strings in multipart.
+        Accepted truthy values: `"true"`, `"1"`. All other strings (including `"false"`, `"0"`) coerce to false.
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: '#/components/schemas/CreateCompetitionRecordRequest'
+              type: object
+              required: [studentId, competitionName, competitionDate, level, category, pajsk, fideRated, mcfRated, placement]
+              properties:
+                studentId:
+                  type: string
+                  format: uuid
+                  description: Target student. Students may only supply their own ID.
+                competitionName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                competitionDate:
+                  type: string
+                  pattern: '^\d{4}-\d{2}-\d{2}$'
+                  description: YYYY-MM-DD format.
+                level:
+                  type: string
+                  enum: [sekolah, daerah, negeri, kebangsaan, antarabangsa]
+                category:
+                  type: string
+                  enum: [u13, u14, u15, u16, u17, u18, u21, open]
+                pajsk:
+                  type: string
+                  description: "Boolean as string. 'true' or '1' → true; anything else → false."
+                fideRated:
+                  type: string
+                  description: "Boolean as string. 'true' or '1' → true; anything else → false."
+                mcfRated:
+                  type: string
+                  description: "Boolean as string. 'true' or '1' → true; anything else → false."
+                placement:
+                  type: string
+                  description: "Integer 1–30 as string, or empty string for null (participation-only)."
+                image:
+                  type: string
+                  format: binary
+                  description: "Optional certificate or supporting image. Allowed: JPEG, PNG, WebP. Max 5 MB."
       responses:
         '201':
           description: Record created
@@ -5104,6 +5095,13 @@ paths:
         - Record creator (any role): may update their own records.
         - `teacher` / `admin`: may update any record regardless of creator.
         - All others (non-creator coach, non-creator student): 403.
+
+        **Image handling:**
+        - Supply a new `image` file to replace the current one (old file deleted from disk).
+        - Send `removeImage` as the string `"true"` or `"1"` to clear without replacement.
+        - Omit both to leave the image unchanged.
+
+        **Boolean coercion:** `pajsk`, `fideRated`, `mcfRated`, `removeImage` — truthy strings `"true"` / `"1"`.
       parameters:
         - name: id
           in: path
@@ -5114,9 +5112,45 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
-              $ref: '#/components/schemas/UpdateCompetitionRecordRequest'
+              type: object
+              description: All fields are optional; at least one must be provided. `studentId` cannot be changed.
+              properties:
+                competitionName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                competitionDate:
+                  type: string
+                  pattern: '^\d{4}-\d{2}-\d{2}$'
+                  description: YYYY-MM-DD format.
+                level:
+                  type: string
+                  enum: [sekolah, daerah, negeri, kebangsaan, antarabangsa]
+                category:
+                  type: string
+                  enum: [u13, u14, u15, u16, u17, u18, u21, open]
+                pajsk:
+                  type: string
+                  description: "Boolean as string. 'true'/'1' → true; anything else → false."
+                fideRated:
+                  type: string
+                  description: "Boolean as string. 'true'/'1' → true; anything else → false."
+                mcfRated:
+                  type: string
+                  description: "Boolean as string. 'true'/'1' → true; anything else → false."
+                placement:
+                  type: string
+                  description: "Integer 1–30 as string, or empty string for null."
+                image:
+                  type: string
+                  format: binary
+                  description: "Replacement image. Allowed: JPEG, PNG, WebP. Max 5 MB."
+                removeImage:
+                  type: string
+                  enum: ['true', '1']
+                  description: "Send 'true' or '1' to clear the current image without replacement."
       responses:
         '200':
           description: Updated competition record
@@ -5196,3 +5230,61 @@ paths:
                 $ref: '#/components/schemas/Error'
               example:
                 error: Record not found
+
+  /records/{id}/image:
+    get:
+      summary: Download record image
+      operationId: downloadRecordImage
+      tags: [Records]
+      description: |
+        Streams the image attached to a competition record. Any authenticated role.
+        No `Content-Disposition` header is set — browsers decide inline vs download.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: CUID record identifier.
+      responses:
+        '200':
+          description: Image file
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            Three distinct cases:
+            - `"Record not found"`
+            - `"No image for this record"`
+            - `"Image file not found"` — record exists but file missing on disk
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                not_found:
+                  value:
+                    error: Record not found
+                no_image:
+                  value:
+                    error: No image for this record
+                file_missing:
+                  value:
+                    error: Image file not found

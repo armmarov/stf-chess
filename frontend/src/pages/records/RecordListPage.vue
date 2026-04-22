@@ -5,7 +5,7 @@ import { useRecordStore } from '@/stores/recordStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useUserStore } from '@/stores/userStore'
 import { placementLabel, LEVEL_LABELS, CATEGORY_LABELS } from '@/utils/records'
-import { recordImageUrl } from '@/api/records'
+import { recordImageUrl, type RecordLevel } from '@/api/records'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -15,10 +15,25 @@ const userStore = useUserStore()
 const router = useRouter()
 
 const selectedStudentId = ref<string>('')
+const selectedLevel = ref<'' | RecordLevel>('')
 const lightboxUrl = ref<string | null>(null)
 
 const isStudent = computed(() => auth.user?.role === 'student')
 const studentTab = ref<'mine' | 'all'>('mine')
+
+const visibleRecords = computed(() => {
+  if (!selectedLevel.value) return recordStore.list
+  return recordStore.list.filter((r) => r.level === selectedLevel.value)
+})
+
+const LEVEL_FILTER_OPTIONS: { value: '' | RecordLevel; label: string }[] = [
+  { value: '',             label: 'All levels' },
+  { value: 'sekolah',      label: 'Sekolah' },
+  { value: 'daerah',       label: 'Daerah' },
+  { value: 'negeri',       label: 'Negeri' },
+  { value: 'kebangsaan',   label: 'Kebangsaan' },
+  { value: 'antarabangsa', label: 'Antarabangsa' },
+]
 
 function openLightbox(url: string) {
   lightboxUrl.value = url
@@ -120,31 +135,44 @@ onMounted(async () => {
       </button>
     </div>
 
-    <!-- Admin/teacher filter dropdown -->
-    <div v-else class="mb-4">
-      <label class="text-sm font-medium text-gray-700 block mb-1">Filter by student</label>
-      <select
-        v-model="selectedStudentId"
-        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-      >
-        <option value="">All students</option>
-        <option v-for="s in students" :key="s.id" :value="s.id">
-          {{ s.name }}{{ s.className ? ` (${s.className})` : '' }}
-        </option>
-      </select>
+    <!-- Admin/teacher filters: student + level -->
+    <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+      <div>
+        <label class="text-sm font-medium text-gray-700 block mb-1">Filter by student</label>
+        <select
+          v-model="selectedStudentId"
+          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        >
+          <option value="">All students</option>
+          <option v-for="s in students" :key="s.id" :value="s.id">
+            {{ s.name }}{{ s.className ? ` (${s.className})` : '' }}
+          </option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm font-medium text-gray-700 block mb-1">Filter by level</label>
+        <select
+          v-model="selectedLevel"
+          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        >
+          <option v-for="opt in LEVEL_FILTER_OPTIONS" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+      </div>
     </div>
 
     <div v-if="recordStore.loading && recordStore.list.length === 0" class="text-center py-10 text-gray-400 text-sm">
       Loading…
     </div>
 
-    <div v-else-if="!recordStore.loading && recordStore.list.length === 0" class="text-center py-10 text-gray-400 text-sm">
+    <div v-else-if="!recordStore.loading && visibleRecords.length === 0" class="text-center py-10 text-gray-400 text-sm">
       No records found.
     </div>
 
     <div v-else class="flex flex-col gap-3">
       <div
-        v-for="record in recordStore.list"
+        v-for="record in visibleRecords"
         :key="record.id"
         class="bg-white rounded-lg border border-gray-200 p-4 transition-colors"
         :class="canEditRecord(record) ? 'cursor-pointer hover:border-indigo-300' : ''"

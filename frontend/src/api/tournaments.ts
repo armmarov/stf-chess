@@ -6,6 +6,8 @@ export interface InterestedStudent {
   className: string | null
 }
 
+export type PajskTarget = 'tiada' | 'sekolah' | 'daerah' | 'negeri' | 'kebangsaan' | 'antarabangsa'
+
 export interface Tournament {
   id: string
   name: string
@@ -15,6 +17,7 @@ export interface Tournament {
   registrationLink: string | null
   resultUrl: string | null
   place: string | null
+  targetPajsk: PajskTarget
   hasImage: boolean
   hasBskkLetter: boolean
   hasKpmLetter: boolean
@@ -35,6 +38,7 @@ export interface CreateTournamentBody {
   place?: string
   registrationLink?: string
   resultUrl?: string
+  targetPajsk?: PajskTarget
   image?: File
   bskkLetter?: File
   kpmLetter?: File
@@ -48,6 +52,7 @@ export interface UpdateTournamentBody {
   place?: string | null
   registrationLink?: string | null
   resultUrl?: string | null
+  targetPajsk?: PajskTarget
   image?: File
   bskkLetter?: File
   kpmLetter?: File
@@ -88,6 +93,7 @@ export async function createTournament(body: CreateTournamentBody): Promise<Tour
   if (body.place) form.append('place', body.place)
   if (body.registrationLink) form.append('registrationLink', body.registrationLink)
   if (body.resultUrl) form.append('resultUrl', body.resultUrl)
+  if (body.targetPajsk) form.append('targetPajsk', body.targetPajsk)
   if (body.image) form.append('image', body.image)
   if (body.bskkLetter) form.append('bskkLetter', body.bskkLetter)
   if (body.kpmLetter) form.append('kpmLetter', body.kpmLetter)
@@ -106,6 +112,7 @@ export async function updateTournament(id: string, body: UpdateTournamentBody): 
   if (body.place !== undefined) form.append('place', body.place ?? '')
   if (body.registrationLink !== undefined) form.append('registrationLink', body.registrationLink ?? '')
   if (body.resultUrl !== undefined) form.append('resultUrl', body.resultUrl ?? '')
+  if (body.targetPajsk !== undefined) form.append('targetPajsk', body.targetPajsk)
   if (body.image) form.append('image', body.image)
   if (body.bskkLetter) form.append('bskkLetter', body.bskkLetter)
   if (body.kpmLetter) form.append('kpmLetter', body.kpmLetter)

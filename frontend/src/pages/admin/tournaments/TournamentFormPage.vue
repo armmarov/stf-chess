@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTournamentStore } from '@/stores/tournamentStore'
 import { useToastStore } from '@/stores/toastStore'
-import { tournamentImageUrl, tournamentLetterUrl } from '@/api/tournaments'
+import { tournamentImageUrl, tournamentLetterUrl, type PajskTarget } from '@/api/tournaments'
 import AppInput from '@/components/AppInput.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -28,6 +28,15 @@ const imagePreviewUrl = ref('')
 const removeImage = ref(false)
 
 const resultUrl = ref('')
+const targetPajsk = ref<PajskTarget>('tiada')
+const PAJSK_OPTIONS: { value: PajskTarget; label: string }[] = [
+  { value: 'tiada',        label: 'Tiada' },
+  { value: 'sekolah',      label: 'Sekolah' },
+  { value: 'daerah',       label: 'Daerah' },
+  { value: 'negeri',       label: 'Negeri' },
+  { value: 'kebangsaan',   label: 'Kebangsaan' },
+  { value: 'antarabangsa', label: 'Antarabangsa' },
+]
 const bskkLetterFile = ref<File | null>(null)
 const kpmLetterFile = ref<File | null>(null)
 const removeBskkLetter = ref(false)
@@ -83,6 +92,7 @@ onMounted(async () => {
       place.value = tournament.value.place ?? ''
       registrationLink.value = tournament.value.registrationLink ?? ''
       resultUrl.value = tournament.value.resultUrl ?? ''
+      targetPajsk.value = tournament.value.targetPajsk ?? 'tiada'
     }
   }
 })
@@ -100,6 +110,7 @@ async function handleSubmit() {
         place: place.value.trim() || null,
         registrationLink: registrationLink.value.trim() || null,
         resultUrl: resultUrl.value.trim() || null,
+        targetPajsk: targetPajsk.value,
         image: imageFile.value ?? undefined,
         bskkLetter: bskkLetterFile.value ?? undefined,
         kpmLetter: kpmLetterFile.value ?? undefined,
@@ -118,6 +129,7 @@ async function handleSubmit() {
         place: place.value.trim() || undefined,
         registrationLink: registrationLink.value.trim() || undefined,
         resultUrl: resultUrl.value.trim() || undefined,
+        targetPajsk: targetPajsk.value,
         image: imageFile.value ?? undefined,
         bskkLetter: bskkLetterFile.value ?? undefined,
         kpmLetter: kpmLetterFile.value ?? undefined,
@@ -208,6 +220,18 @@ async function handleSubmit() {
         placeholder="https://chess-results.com/…"
         type="url"
       />
+
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium text-gray-700">Target PAJSK</label>
+        <select
+          v-model="targetPajsk"
+          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        >
+          <option v-for="opt in PAJSK_OPTIONS" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+      </div>
 
       <!-- BSKK Pre-Approval Letter (PDF) -->
       <div class="flex flex-col gap-1">

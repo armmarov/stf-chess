@@ -88,6 +88,24 @@ describe('createTournamentSchema', () => {
       createTournamentSchema.safeParse({ ...valid, place: 'a'.repeat(201) }).success,
     ).toBe(false);
   });
+
+  it('valid resultUrl passes', () => {
+    expect(
+      createTournamentSchema.safeParse({ ...valid, resultUrl: 'https://results.example.com' }).success,
+    ).toBe(true);
+  });
+
+  it('invalid resultUrl → error', () => {
+    expect(
+      createTournamentSchema.safeParse({ ...valid, resultUrl: 'not-a-url' }).success,
+    ).toBe(false);
+  });
+
+  it('empty string resultUrl → undefined (preprocessed)', () => {
+    const result = createTournamentSchema.safeParse({ ...valid, resultUrl: '' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.resultUrl).toBeUndefined();
+  });
 });
 
 describe('updateTournamentSchema', () => {
@@ -137,6 +155,30 @@ describe('updateTournamentSchema', () => {
 
   it('removeImage string value is valid', () => {
     expect(updateTournamentSchema.safeParse({ removeImage: 'true' }).success).toBe(true);
+  });
+
+  it('removeBskkLetter string value is valid', () => {
+    expect(updateTournamentSchema.safeParse({ removeBskkLetter: 'true' }).success).toBe(true);
+  });
+
+  it('removeKpmLetter string value is valid', () => {
+    expect(updateTournamentSchema.safeParse({ removeKpmLetter: 'true' }).success).toBe(true);
+  });
+
+  it('valid resultUrl passes', () => {
+    expect(
+      updateTournamentSchema.safeParse({ resultUrl: 'https://results.example.com' }).success,
+    ).toBe(true);
+  });
+
+  it('invalid resultUrl → error', () => {
+    expect(updateTournamentSchema.safeParse({ resultUrl: 'not-a-url' }).success).toBe(false);
+  });
+
+  it('empty string resultUrl → null (preprocessed)', () => {
+    const result = updateTournamentSchema.safeParse({ resultUrl: '' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.resultUrl).toBeNull();
   });
 
   it('valid place passes', () => {

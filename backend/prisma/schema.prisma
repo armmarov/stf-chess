@@ -181,6 +181,7 @@ model Tournament {
   bskkLetterPath   String?   @map("bskk_letter_path")
   kpmLetterPath    String?   @map("kpm_letter_path")
   resultUrl        String?   @map("result_url")
+  targetPajsk      PajskTarget @default(tiada) @map("target_pajsk")
   startDate        DateTime? @map("start_date") @db.Date
   endDate          DateTime? @map("end_date") @db.Date
   createdById      String    @map("created_by_id")
@@ -356,6 +357,15 @@ model PuzzleAttempt {
 }
 
 enum CompetitionLevel {
+  sekolah
+  daerah
+  negeri
+  kebangsaan
+  antarabangsa
+}
+
+enum PajskTarget {
+  tiada
   sekolah
   daerah
   negeri

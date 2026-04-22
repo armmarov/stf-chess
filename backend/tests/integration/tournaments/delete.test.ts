@@ -2,7 +2,7 @@ import request from 'supertest';
 import { app } from '../../helpers/app';
 import { createUser, loginAs } from '../../helpers/auth';
 import { prisma, resetDb } from '../../helpers/db';
-import { JPEG_BUFFER } from '../../helpers/payments';
+import { JPEG_BUFFER, PDF_BUFFER } from '../../helpers/payments';
 import {
   cleanTournamentUploads,
   createTournamentRecord,
@@ -88,6 +88,51 @@ describe('DELETE /api/tournaments/:id', () => {
 
       const res = await agent.delete(URL(tournament.id));
       expect(res.status).toBe(204);
+    });
+
+    it('admin deletes tournament with bskkLetter → letter file removed from disk', async () => {
+      const { agent, user: admin } = await loginAs('admin');
+      const bskkPath = writeTournamentFixture('del-bskk.pdf', PDF_BUFFER);
+      const tournament = await createTournamentRecord(admin.id, { bskkLetterPath: bskkPath });
+
+      expect(tournamentFileExists(bskkPath)).toBe(true);
+
+      const res = await agent.delete(URL(tournament.id));
+
+      expect(res.status).toBe(204);
+      expect(tournamentFileExists(bskkPath)).toBe(false);
+    });
+
+    it('admin deletes tournament with kpmLetter → letter file removed from disk', async () => {
+      const { agent, user: admin } = await loginAs('admin');
+      const kpmPath = writeTournamentFixture('del-kpm.pdf', PDF_BUFFER);
+      const tournament = await createTournamentRecord(admin.id, { kpmLetterPath: kpmPath });
+
+      expect(tournamentFileExists(kpmPath)).toBe(true);
+
+      const res = await agent.delete(URL(tournament.id));
+
+      expect(res.status).toBe(204);
+      expect(tournamentFileExists(kpmPath)).toBe(false);
+    });
+
+    it('delete removes all three files (image + bskkLetter + kpmLetter) from disk', async () => {
+      const { agent, user: admin } = await loginAs('admin');
+      const imgPath = writeTournamentFixture('all-img.jpg', JPEG_BUFFER);
+      const bskkPath = writeTournamentFixture('all-bskk.pdf', PDF_BUFFER);
+      const kpmPath = writeTournamentFixture('all-kpm.pdf', PDF_BUFFER);
+      const tournament = await createTournamentRecord(admin.id, {
+        imagePath: imgPath,
+        bskkLetterPath: bskkPath,
+        kpmLetterPath: kpmPath,
+      });
+
+      const res = await agent.delete(URL(tournament.id));
+
+      expect(res.status).toBe(204);
+      expect(tournamentFileExists(imgPath)).toBe(false);
+      expect(tournamentFileExists(bskkPath)).toBe(false);
+      expect(tournamentFileExists(kpmPath)).toBe(false);
     });
 
     it('delete cascades to tournament_interests', async () => {

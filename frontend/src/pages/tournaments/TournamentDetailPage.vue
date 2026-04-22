@@ -25,6 +25,18 @@ const isStudent = computed(() => auth.user?.role === 'student')
 
 const lightboxOpen = ref(false)
 
+function pajskBadgeClass(target: string): string {
+  const map: Record<string, string> = {
+    tiada: 'bg-gray-100 text-gray-600',
+    sekolah: 'bg-gray-100 text-gray-700',
+    daerah: 'bg-blue-100 text-blue-700',
+    negeri: 'bg-purple-100 text-purple-700',
+    kebangsaan: 'bg-orange-100 text-orange-700',
+    antarabangsa: 'bg-red-100 text-red-700',
+  }
+  return map[target] ?? 'bg-gray-100 text-gray-600'
+}
+
 async function toggleInterest() {
   if (!tournament.value) return
   try {
@@ -145,6 +157,21 @@ onMounted(() => tournamentStore.fetchTournament(id))
                 Register now
                 <AppIcon name="link" class="h-3.5 w-3.5" />
               </a>
+            </dd>
+          </div>
+
+          <div>
+            <dt class="text-xs text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5 mb-1.5">
+              <AppIcon name="tag" class="h-3.5 w-3.5" />
+              Target PAJSK
+            </dt>
+            <dd>
+              <span
+                class="inline-block text-xs rounded-full px-2 py-0.5 font-medium capitalize"
+                :class="pajskBadgeClass(tournament.targetPajsk)"
+              >
+                {{ tournament.targetPajsk }}
+              </span>
             </dd>
           </div>
 

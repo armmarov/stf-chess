@@ -18,9 +18,12 @@ Tournament {
   id               uuid (PK)
   name             varchar(200)
   description      text
-  place            string?       -- venue / location
-  imagePath        string?       -- relative path under UPLOADS_DIR (e.g. "tournaments/uuid.jpg")
-  registrationLink string?       -- external URL
+  place            string?           -- venue / location
+  imagePath        string?           -- relative path under UPLOADS_DIR
+  bskkLetterPath   string?           -- relative path to BSKK approval letter PDF
+  kpmLetterPath    string?           -- relative path to KPM approval letter PDF
+  registrationLink string?           -- external registration URL
+  resultUrl        string?           -- URL to tournament results
   startDate        DateTime?
   endDate          DateTime?
   createdById      uuid (FK → User, RESTRICT)
@@ -42,21 +45,45 @@ Indexes on Tournament: [startDate]
 
 `Tournament` rows are hard-deleted (no soft delete). Deleting a tournament also deletes all `TournamentInterest` rows (CASCADE) and the image file from disk.
 
-## Image Storage
+## File Attachments
+
+All files are stored under `UPLOADS_DIR/tournaments/`. Internal paths (`imagePath`, `bskkLetterPath`, `kpmLetterPath`) are **never** exposed in API responses — boolean flags (`hasImage`, `hasBskkLetter`, `hasKpmLetter`) indicate presence.
+
+### Tournament Image
 
 | Property | Value |
 |----------|-------|
 | Subdirectory | `UPLOADS_DIR/tournaments/` |
-| Filename format | `<uuid>.<ext>` — original filename discarded |
 | Allowed MIME types | `image/jpeg`, `image/png`, `image/webp` |
 | Maximum size | 5 MB |
-| Served via | `GET /api/tournaments/{id}/image` (any authenticated role) |
-| On tournament update | Old image deleted from disk before new one is saved |
-| On tournament delete | Image file deleted from disk |
+| Served via | `GET /api/tournaments/{id}/image` |
+| On update | Old file deleted from disk before new one is saved |
+| On delete | File deleted from disk |
 
-`imagePath` in API responses is the internal relative path (e.g. `"tournaments/abc123.jpg"`). Clients must not construct file URLs from this — use the authenticated image endpoint instead.
+To clear without replacement: send `removeImage=true` (string `"true"`) in the PATCH body.
 
-To remove an image without replacement, send `removeImage=true` (the string `"true"`) in the PATCH body.
+### Approval Letters
+
+Two optional PDF approval letters can be attached per tournament:
+
+| Letter | Field | Served via |
+|--------|-------|-----------|
+| BSKK (Bahagian Sukan, Kesenian & Kokurikulum) | `bskkLetter` (form field) | `GET /api/tournaments/{id}/letter/bskk` |
+| KPM (Kementerian Pendidikan Malaysia) | `kpmLetter` (form field) | `GET /api/tournaments/{id}/letter/kpm` |
+
+| Property | Value |
+|----------|-------|
+| Allowed MIME types | `application/pdf` |
+| Maximum size | 5 MB |
+| `Content-Disposition` | `inline; filename="<stored-filename>"` |
+
+To clear a letter without replacement: send `removeBskkLetter=true` or `removeKpmLetter=true` (string `"true"`) in the PATCH body.
+
+Deleting a tournament removes all three files (image, BSKK letter, KPM letter) from disk.
+
+### Result URL
+
+`resultUrl` is an optional external URL pointing to the tournament results page. Sent as a plain string field in the multipart form body. Send an empty string to clear it.
 
 ## Notification Trigger
 
@@ -75,10 +102,10 @@ sequenceDiagram
     participant FS as UPLOADS_DIR/tournaments
     participant DB as PostgreSQL
 
-    A->>API: POST /tournaments (multipart: name, description, image?)
+    A->>API: POST /tournaments (multipart: name, description, image?, bskkLetter?, kpmLetter?, resultUrl?)
     API->>API: role check — must be admin
-    API->>FS: write image as <uuid>.<ext> (if provided)
-    API->>DB: INSERT Tournament { name, description, imagePath, registrationLink, startDate, endDate, createdById }
+    API->>FS: write image and/or letters (if provided)
+    API->>DB: INSERT Tournament { name, description, imagePath, bskkLetterPath, kpmLetterPath, registrationLink, resultUrl, startDate, endDate, createdById }
     API-->>A: 201 { tournament: TournamentDetail & { interestCount: 0 } }
     API->>DB: SELECT active students (fire-and-forget)
     API->>DB: INSERT notifications (type='tournament_added')
@@ -109,4 +136,5 @@ See `docs/api/openapi.yaml` paths:
 - `PATCH /tournaments/{id}`
 - `DELETE /tournaments/{id}`
 - `GET /tournaments/{id}/image`
+- `GET /tournaments/{id}/letter/{which}` — `which` ∈ `{bskk, kpm}`
 - `POST /tournaments/{id}/interest`

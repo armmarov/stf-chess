@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD format');
 
+const pajskTarget = z.enum(['tiada', 'sekolah', 'daerah', 'negeri', 'kebangsaan', 'antarabangsa']);
+
 export const createTournamentSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().min(1),
@@ -16,6 +18,7 @@ export const createTournamentSchema = z.object({
   startDate: dateString.optional(),
   endDate: dateString.optional(),
   place: z.string().min(1).max(200).optional(),
+  targetPajsk: pajskTarget.optional(),
 });
 
 export const updateTournamentSchema = z.object({
@@ -44,6 +47,7 @@ export const updateTournamentSchema = z.object({
     (v) => (v === '' ? null : v),
     z.string().min(1).max(200).nullable().optional(),
   ),
+  targetPajsk: pajskTarget.optional(),
 });
 
 export const interestSchema = z.object({
