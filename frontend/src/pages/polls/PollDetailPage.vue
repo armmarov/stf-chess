@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePollStore } from '@/stores/pollStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -49,8 +49,22 @@ function toggleVoters(optionId: string) {
 const showResults = computed(() =>
   isAdmin.value || !!poll.value?.myVotedOptionId || poll.value?.status !== 'active',
 )
+// Voting UI stays visible whenever poll is active — users can change their
+// vote until the window closes. (Admins don't vote.)
 const showVoting = computed(() =>
-  !isAdmin.value && poll.value?.status === 'active' && !poll.value?.myVotedOptionId,
+  !isAdmin.value && poll.value?.status === 'active',
+)
+const hasVoted = computed(() => !!poll.value?.myVotedOptionId)
+const canSubmit = computed(() =>
+  !!selectedOptionId.value &&
+  selectedOptionId.value !== poll.value?.myVotedOptionId,
+)
+
+// Keep the radio group in sync with the server's record of my vote.
+watch(
+  () => poll.value?.myVotedOptionId,
+  (id) => { if (id) selectedOptionId.value = id },
+  { immediate: true },
 )
 
 const statusBadge = computed(() => {
@@ -149,9 +163,11 @@ onMounted(() => pollStore.fetchPoll(id))
         </p>
       </div>
 
-      <!-- Voting card (active + not voted, non-admin) -->
+      <!-- Voting card (active, non-admin; stays visible even after voting so user can change) -->
       <div v-if="showVoting" class="bg-white rounded-lg border border-gray-200 p-4 flex flex-col gap-3">
-        <p class="text-sm font-medium text-gray-900">Cast your vote</p>
+        <p class="text-sm font-medium text-gray-900">
+          {{ hasVoted ? 'Your vote (you can change it while the poll is active)' : 'Cast your vote' }}
+        </p>
 
         <div class="flex flex-col gap-2">
           <label
@@ -179,8 +195,8 @@ onMounted(() => pollStore.fetchPoll(id))
           </label>
         </div>
 
-        <AppButton :disabled="!selectedOptionId || voting" @click="handleVote">
-          {{ voting ? 'Submitting…' : 'Submit vote' }}
+        <AppButton :disabled="!canSubmit || voting" @click="handleVote">
+          {{ voting ? 'Submitting…' : hasVoted ? 'Change vote' : 'Submit vote' }}
         </AppButton>
       </div>
 

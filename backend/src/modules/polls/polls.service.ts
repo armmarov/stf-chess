@@ -1,6 +1,5 @@
 import path from 'path';
 import fs from 'fs';
-import { Prisma } from '@prisma/client';
 import prisma from '../../utils/prisma';
 import { AppError } from '../../middleware/errorHandler';
 import { env } from '../../config/env';
@@ -253,14 +252,13 @@ export async function castVote(pollId: string, userId: string, optionId: string,
     throw new AppError(400, 'Invalid option for this poll');
   }
 
-  try {
-    await prisma.vote.create({ data: { pollId, optionId, userId } });
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      throw new AppError(409, 'You have already voted');
-    }
-    throw err;
-  }
+  // Upsert — lets users change their vote while the poll is still active.
+  // The composite unique constraint (pollId, userId) makes this atomic.
+  await prisma.vote.upsert({
+    where: { pollId_userId: { pollId, userId } },
+    create: { pollId, optionId, userId },
+    update: { optionId },
+  });
 
   return buildPollDetail(pollId, userId, role);
 }
