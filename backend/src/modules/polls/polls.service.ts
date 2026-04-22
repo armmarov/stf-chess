@@ -107,7 +107,7 @@ async function buildPollDetail(id: string, userId: string, role = 'student') {
     endDate: poll.endDate,
     status: computeStatus(poll),
     myVoted: !!myVote,
-    myOptionId: myVote?.optionId ?? null,
+    myVotedOptionId: myVote?.optionId ?? null,
     createdBy: poll.createdBy,
     options: poll.options.map(({ _count, imagePath, ...o }) => ({
       ...o,
