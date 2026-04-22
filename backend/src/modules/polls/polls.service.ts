@@ -241,9 +241,9 @@ export async function castVote(pollId: string, userId: string, optionId: string,
   });
   if (!poll) throw new AppError(404, 'Poll not found');
 
-  const now = new Date();
-  if (now < poll.startDate) throw new AppError(409, 'Poll has not started');
-  if (now > poll.endDate) throw new AppError(409, 'Poll has ended');
+  const nowMs = wallClockNowMs();
+  if (nowMs < poll.startDate.getTime()) throw new AppError(409, 'Poll has not started');
+  if (nowMs > poll.endDate.getTime()) throw new AppError(409, 'Poll has ended');
 
   const option = await prisma.pollOption.findUnique({
     where: { id: optionId },
