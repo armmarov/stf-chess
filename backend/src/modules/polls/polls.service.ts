@@ -28,10 +28,26 @@ function toImagePath(file: Express.Multer.File): string {
 
 type PollStatus = 'upcoming' | 'active' | 'expired';
 
+// Poll start/end are stored as wall-clock tagged as UTC (FE appends 'Z' to
+// the datetime-local input), so compare against "now as if it were UTC" to
+// cancel the server-TZ offset. Same convention used by session / attendance.
+function wallClockNowMs(): number {
+  const n = new Date();
+  return Date.UTC(
+    n.getFullYear(),
+    n.getMonth(),
+    n.getDate(),
+    n.getHours(),
+    n.getMinutes(),
+    n.getSeconds(),
+    n.getMilliseconds(),
+  );
+}
+
 function computeStatus(poll: { startDate: Date; endDate: Date }): PollStatus {
-  const now = new Date();
-  if (now < poll.startDate) return 'upcoming';
-  if (now > poll.endDate) return 'expired';
+  const nowMs = wallClockNowMs();
+  if (nowMs < poll.startDate.getTime()) return 'upcoming';
+  if (nowMs > poll.endDate.getTime()) return 'expired';
   return 'active';
 }
 
